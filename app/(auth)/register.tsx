@@ -1,18 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { AuthScreen } from '@/components/AuthScreen';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
-import { colors, spacing, textStyles } from '@/lib/theme';
+import { colors, textStyles } from '@/lib/theme';
 import { toast } from '@/utils/toast';
 
 const emailPattern = /\S+@\S+\.\S+/;
@@ -71,81 +65,83 @@ export default function RegisterScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.flex}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Create your Groceo account</Text>
-        <Text style={styles.subtitle}>
-          Set up your shared groceries in minutes.
+    <AuthScreen
+      title="Create your account"
+      subtitle="Set up your household hub in just a couple of taps."
+      footer={
+        <Text style={styles.footerText}>
+          Already have an account?{' '}
+          <Text
+            style={styles.footerLink}
+            onPress={() => router.replace('/(auth)/login')}>
+            Log in
+          </Text>
         </Text>
-        <View style={styles.form}>
-          <TextField
-            label="Email"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            returnKeyType="next"
-            onSubmitEditing={() => passwordRef.current?.focus()}
-            error={errors.email}
-          />
-          <TextField
-            ref={passwordRef}
-            label="Password"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Create a password"
-            returnKeyType="next"
-            onSubmitEditing={() => confirmRef.current?.focus()}
-            error={errors.password}
-          />
-          <TextField
-            ref={confirmRef}
-            label="Confirm password"
-            secureTextEntry
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            placeholder="Repeat your password"
-            error={errors.confirmPassword}
-          />
-          <Button title="Sign up" onPress={handleSubmit} loading={loading} />
-          <Button
-            title="I already have an account"
-            variant="ghost"
-            onPress={() => router.replace('/(auth)/login')}
-            disabled={loading}
-          />
-        </View>
+      }>
+      <TextField
+        label="Email"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        value={email}
+        onChangeText={setEmail}
+        placeholder="you@example.com"
+        returnKeyType="next"
+        onSubmitEditing={() => passwordRef.current?.focus()}
+        error={errors.email}
+      />
+      <TextField
+        ref={passwordRef}
+        label="Password"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+        placeholder="Create a password"
+        returnKeyType="next"
+        onSubmitEditing={() => confirmRef.current?.focus()}
+        error={errors.password}
+      />
+      <TextField
+        ref={confirmRef}
+        label="Confirm password"
+        secureTextEntry
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+        placeholder="Repeat your password"
+        error={errors.confirmPassword}
+      />
+      <View style={styles.passwordHint}>
+        <View style={styles.dot} />
+        <Text style={styles.passwordHintText}>
+          Use at least 6 characters to keep your list secure.
+        </Text>
       </View>
-    </KeyboardAvoidingView>
+      <Button title="Sign up" onPress={handleSubmit} loading={loading} />
+    </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-    backgroundColor: colors.background,
+  passwordHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  container: {
-    flex: 1,
-    padding: spacing.lg,
-    gap: spacing.lg,
-    justifyContent: 'center',
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
   },
-  title: {
-    ...textStyles.title,
-    textAlign: 'center',
+  passwordHintText: {
+    ...textStyles.caption,
   },
-  subtitle: {
+  footerText: {
     ...textStyles.body,
     color: colors.muted,
-    textAlign: 'center',
   },
-  form: {
-    gap: spacing.md,
+  footerLink: {
+    color: colors.primary,
+    fontWeight: '700',
   },
 });

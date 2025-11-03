@@ -1,17 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { AuthScreen } from '@/components/AuthScreen';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
-import { colors, spacing, textStyles } from '@/lib/theme';
+import { colors, textStyles } from '@/lib/theme';
 import { toast } from '@/utils/toast';
 
 const emailPattern = /\S+@\S+\.\S+/;
@@ -58,79 +53,70 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.flex}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Log in to access your shared groceries.</Text>
-        <View style={styles.form}>
-          <TextField
-            label="Email"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            value={email}
-            onChangeText={setEmail}
-            error={errors.email}
-            placeholder="you@example.com"
-          />
-          <TextField
-            label="Password"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            error={errors.password}
-            placeholder="Your password"
-          />
-          <View style={styles.forgotPassword}>
-            <Text
-              style={styles.forgotPasswordText}
-              onPress={() => toast('Password reset will be available soon.')}>
-              Forgot password?
-            </Text>
-          </View>
-          <Button title="Log in" onPress={handleSubmit} loading={loading} />
-          <Button
-            title="Create an account"
-            variant="ghost"
-            onPress={() => router.replace('/(auth)/register')}
-            disabled={loading}
-          />
-        </View>
+    <AuthScreen
+      title="Welcome back"
+      subtitle="Log in to see what the household needs next."
+      footer={
+        <Text style={styles.footerText}>
+          Need an account?{' '}
+          <Text
+            style={styles.footerLink}
+            onPress={() => router.replace('/(auth)/register')}>
+            Create one
+          </Text>
+        </Text>
+      }>
+      <TextField
+        label="Email"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        value={email}
+        onChangeText={setEmail}
+        error={errors.email}
+        placeholder="you@example.com"
+      />
+      <TextField
+        label="Password"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+        error={errors.password}
+        placeholder="Your password"
+      />
+      <View style={styles.inlineActions}>
+        <Text
+          style={styles.inlineLink}
+          onPress={() => toast('Password reset will be available soon.')}>
+          Forgot password?
+        </Text>
+        <Text style={styles.inlineLink} onPress={() => toast('Magic link coming soon!')}>
+          Email me a magic link
+        </Text>
       </View>
-    </KeyboardAvoidingView>
+      <Button title="Log in" onPress={handleSubmit} loading={loading} />
+    </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-    backgroundColor: colors.background,
+  inlineActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  container: {
-    flex: 1,
-    padding: spacing.lg,
-    gap: spacing.lg,
-    justifyContent: 'center',
-  },
-  title: {
-    ...textStyles.title,
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...textStyles.body,
-    textAlign: 'center',
-    color: colors.muted,
-  },
-  form: {
-    gap: spacing.md,
-  },
-  forgotPassword: {
-    alignItems: 'flex-end',
-  },
-  forgotPasswordText: {
+  inlineLink: {
     color: colors.primary,
     fontWeight: '600',
+  },
+  footerText: {
+    ...textStyles.body,
+    color: colors.muted,
+  },
+  footerLink: {
+    color: colors.primary,
+    fontWeight: '700',
   },
 });
