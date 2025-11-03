@@ -1,6 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
 import { create } from 'zustand';
-import { shallow } from 'zustand/shallow';
 import type { Session } from '@supabase/supabase-js';
 
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -74,23 +73,15 @@ export function cleanupSessionListener() {
 }
 
 export function useSession() {
-  return useSessionStore(
-    (state) => ({
-      session: state.session,
-      isLoading: state.isLoading,
-    }),
-    shallow
-  );
+  const session = useSessionStore((state) => state.session);
+  const isLoading = useSessionStore((state) => state.isLoading);
+  return { session, isLoading };
 }
 
 export function useActiveHousehold() {
-  return useSessionStore(
-    (state) => ({
-      activeHouseholdId: state.activeHouseholdId,
-      setActiveHouseholdId: state.setActiveHouseholdId,
-    }),
-    shallow
-  );
+  const activeHouseholdId = useSessionStore((state) => state.activeHouseholdId);
+  const setActiveHouseholdId = useSessionStore((state) => state.setActiveHouseholdId);
+  return { activeHouseholdId, setActiveHouseholdId };
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {

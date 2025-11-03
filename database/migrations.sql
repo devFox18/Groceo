@@ -66,6 +66,7 @@ create policy if not exists households_select
       select 1 from public.members m
       where m.household_id = households.id and m.user_id = auth.uid()
     )
+    or owner_id = auth.uid()
   );
 
 create policy if not exists households_insert

@@ -6,6 +6,7 @@ import { TextField } from '@/components/TextField';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { colors, radius, spacing, textStyles } from '@/lib/theme';
 import { useActiveHousehold, useSession } from '@/state/sessionStore';
+import { logSupabaseError } from '@/utils/logging';
 import { toast } from '@/utils/toast';
 
 type Household = {
@@ -80,16 +81,24 @@ export default function ProfileScreen() {
 
     setCreating(true);
 
+    const trimmedName = newHouseholdName.trim();
+
     const { data: createdHousehold, error: householdError } = await supabase
       .from('households')
       .insert({
-        name: newHouseholdName.trim(),
+        name: trimmedName,
         owner_id: session.user.id,
       })
       .select()
       .single();
 
     if (householdError || !createdHousehold) {
+      logSupabaseError('households.insert', householdError, {
+        screen: 'Profile',
+        userId: session.user.id,
+        householdName: trimmedName,
+        hasData: Boolean(createdHousehold),
+      });
       toast('Failed to create household.');
       setCreating(false);
       return;
@@ -102,6 +111,11 @@ export default function ProfileScreen() {
     });
 
     if (memberError) {
+      logSupabaseError('members.insert', memberError, {
+        screen: 'Profile',
+        userId: session.user.id,
+        householdId: createdHousehold.id,
+      });
       toast('Failed to join household.');
       setCreating(false);
       return;
@@ -113,6 +127,11 @@ export default function ProfileScreen() {
     });
 
     if (listError) {
+      logSupabaseError('lists.insert', listError, {
+        screen: 'Profile',
+        userId: session.user.id,
+        householdId: createdHousehold.id,
+      });
       toast('Failed to create default list.');
       setCreating(false);
       return;

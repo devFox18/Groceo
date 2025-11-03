@@ -17,6 +17,7 @@ import { useRealtimeList } from '@/hooks/useRealtimeList';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { colors, radius, spacing, textStyles } from '@/lib/theme';
 import { useActiveHousehold, useSession } from '@/state/sessionStore';
+import { logSupabaseError } from '@/utils/logging';
 import { toast } from '@/utils/toast';
 
 type Household = {
@@ -148,16 +149,24 @@ export default function HomeScreen() {
 
     setCreatingHousehold(true);
 
+    const trimmedName = householdName.trim();
+
     const { data: createdHousehold, error: householdError } = await supabase
       .from('households')
       .insert({
-        name: householdName.trim(),
+        name: trimmedName,
         owner_id: session.user.id,
       })
       .select()
       .single();
 
     if (householdError || !createdHousehold) {
+      logSupabaseError('households.insert', householdError, {
+        screen: 'Home',
+        userId: session.user.id,
+        householdName: trimmedName,
+        hasData: Boolean(createdHousehold),
+      });
       toast('Failed to create household. Please try again.');
       setCreatingHousehold(false);
       return;
@@ -170,6 +179,11 @@ export default function HomeScreen() {
     });
 
     if (memberError) {
+      logSupabaseError('members.insert', memberError, {
+        screen: 'Home',
+        userId: session.user.id,
+        householdId: createdHousehold.id,
+      });
       toast('Failed to join household. Please try again.');
       setCreatingHousehold(false);
       return;
@@ -185,6 +199,12 @@ export default function HomeScreen() {
       .single();
 
     if (listError || !createdList) {
+      logSupabaseError('lists.insert', listError, {
+        screen: 'Home',
+        userId: session.user.id,
+        householdId: createdHousehold.id,
+        hasData: Boolean(createdList),
+      });
       toast('Failed to create default list.');
       setCreatingHousehold(false);
       return;
