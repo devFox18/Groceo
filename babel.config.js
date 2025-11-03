@@ -8,11 +8,12 @@ module.exports = function (api) {
         {
           extensions: ['.tsx', '.ts', '.js', '.jsx', '.json'],
           alias: {
-            '@': ['./src', './app', './assets'],
+            '@': './src',
+            '@app': './app',
+            '@assets': './assets',
           },
         },
       ],
-      'expo-router/babel',
       'react-native-reanimated/plugin',
     ],
   };

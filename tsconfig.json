@@ -8,7 +8,9 @@
     "moduleResolution": "node",
     "types": ["node", "react", "react-native"],
     "paths": {
-      "@/*": ["src/*", "app/*", "assets/*"]
+      "@/*": ["src/*"],
+      "@app/*": ["app/*"],
+      "@assets/*": ["assets/*"]
     }
   },
   "include": [

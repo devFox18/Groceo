@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { create } from 'zustand';
+import { shallow } from 'zustand/shallow';
 import type { Session } from '@supabase/supabase-js';
 
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -19,7 +20,10 @@ export const useSessionStore = create<SessionState>((set) => ({
   hasInitialized: false,
   activeHouseholdId: null,
   setState: (partial) => set((state) => ({ ...state, ...partial })),
-  setActiveHouseholdId: (id) => set((state) => ({ ...state, activeHouseholdId: id })),
+  setActiveHouseholdId: (id) =>
+    set((state) =>
+      state.activeHouseholdId === id ? state : { ...state, activeHouseholdId: id }
+    ),
 }));
 
 let subscription: { unsubscribe: () => void } | null = null;
@@ -70,17 +74,23 @@ export function cleanupSessionListener() {
 }
 
 export function useSession() {
-  return useSessionStore((state) => ({
-    session: state.session,
-    isLoading: state.isLoading,
-  }));
+  return useSessionStore(
+    (state) => ({
+      session: state.session,
+      isLoading: state.isLoading,
+    }),
+    shallow
+  );
 }
 
 export function useActiveHousehold() {
-  return useSessionStore((state) => ({
-    activeHouseholdId: state.activeHouseholdId,
-    setActiveHouseholdId: state.setActiveHouseholdId,
-  }));
+  return useSessionStore(
+    (state) => ({
+      activeHouseholdId: state.activeHouseholdId,
+      setActiveHouseholdId: state.setActiveHouseholdId,
+    }),
+    shallow
+  );
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
