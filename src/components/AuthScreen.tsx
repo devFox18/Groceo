@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,9 +17,18 @@ type AuthScreenProps = {
   subtitle: string;
   children: ReactNode;
   footer?: ReactNode;
+  learnLabel?: string;
+  onPressLearn?: () => void;
 };
 
-export function AuthScreen({ title, subtitle, children, footer }: AuthScreenProps) {
+export function AuthScreen({
+  title,
+  subtitle,
+  children,
+  footer,
+  learnLabel,
+  onPressLearn,
+}: AuthScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -35,6 +45,11 @@ export function AuthScreen({ title, subtitle, children, footer }: AuthScreenProp
             <Text style={styles.heroSubtitle}>
               Smart groceries for every household.
             </Text>
+            {learnLabel && onPressLearn ? (
+              <TouchableOpacity style={styles.learnButton} onPress={onPressLearn}>
+                <Text style={styles.learnButtonText}>{learnLabel}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           <View style={styles.card}>
@@ -91,6 +106,20 @@ const styles = StyleSheet.create({
     ...textStyles.body,
     color: colors.muted,
     textAlign: 'center',
+  },
+  learnButton: {
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  learnButtonText: {
+    ...textStyles.caption,
+    color: colors.primary,
+    fontWeight: '600',
   },
   card: {
     backgroundColor: colors.background,

@@ -56,15 +56,19 @@ export default function LoginScreen() {
     <AuthScreen
       title="Welcome back"
       subtitle="Log in to see what the household needs next."
+      learnLabel="How Groceo works"
+      onPressLearn={() => router.replace('/onboarding')}
       footer={
-        <Text style={styles.footerText}>
-          Need an account?{' '}
-          <Text
-            style={styles.footerLink}
-            onPress={() => router.replace('/(auth)/register')}>
-            Create one
+        <>
+          <Text style={styles.footerText}>
+            Need an account?{' '}
+            <Text
+              style={styles.footerLink}
+              onPress={() => router.replace('/(auth)/register')}>
+              Create one
+            </Text>
           </Text>
-        </Text>
+        </>
       }>
       <TextField
         label="Email"

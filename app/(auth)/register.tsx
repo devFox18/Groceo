@@ -68,15 +68,19 @@ export default function RegisterScreen() {
     <AuthScreen
       title="Create your account"
       subtitle="Set up your household hub in just a couple of taps."
+      learnLabel="How Groceo works"
+      onPressLearn={() => router.replace('/onboarding')}
       footer={
-        <Text style={styles.footerText}>
-          Already have an account?{' '}
-          <Text
-            style={styles.footerLink}
-            onPress={() => router.replace('/(auth)/login')}>
-            Log in
+        <>
+          <Text style={styles.footerText}>
+            Already have an account?{' '}
+            <Text
+              style={styles.footerLink}
+              onPress={() => router.replace('/(auth)/login')}>
+              Log in
+            </Text>
           </Text>
-        </Text>
+        </>
       }>
       <TextField
         label="Email"
