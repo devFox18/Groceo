@@ -88,35 +88,17 @@ create policy if not exists households_delete
 create policy if not exists members_select
   on public.members
   for select
-  using (
-    user_id = auth.uid()
-    or exists (
-      select 1 from public.households h
-      where h.id = members.household_id and h.owner_id = auth.uid()
-    )
-  );
+  using (user_id = auth.uid());
 
 create policy if not exists members_insert
   on public.members
   for insert
-  with check (
-    user_id = auth.uid()
-    or exists (
-      select 1 from public.households h
-      where h.id = household_id and h.owner_id = auth.uid()
-    )
-  );
+  with check (user_id = auth.uid());
 
 create policy if not exists members_delete
   on public.members
   for delete
-  using (
-    user_id = auth.uid()
-    or exists (
-      select 1 from public.households h
-      where h.id = members.household_id and h.owner_id = auth.uid()
-    )
-  );
+  using (user_id = auth.uid());
 
 -- Policies for lists
 create policy if not exists lists_crud

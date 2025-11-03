@@ -269,18 +269,28 @@ export default function HomeScreen() {
     []
   );
 
-  const handleDeleteItem = useCallback(async (item: GroceryItem) => {
-    if (!isSupabaseConfigured || !supabase) {
-      toast('Supabase is not configured.');
-      return;
-    }
-    const { error } = await supabase.from('items').delete().eq('id', item.id);
-    if (error) {
-      toast('Failed to delete item.');
-    } else {
+  const handleDeleteItem = useCallback(
+    async (item: GroceryItem) => {
+      if (!isSupabaseConfigured || !supabase) {
+        toast('Supabase is not configured.');
+        return;
+      }
+      const { error } = await supabase.from('items').delete().eq('id', item.id);
+      if (error) {
+        logSupabaseError('items.delete', error, {
+          screen: 'Home',
+          userId: session?.user.id,
+          itemId: item.id,
+          listId: list?.id,
+        });
+        toast('Failed to delete item.');
+        return;
+      }
       toast('Item removed.');
-    }
-  }, []);
+      void refetch();
+    },
+    [list?.id, refetch, session?.user.id]
+  );
 
   const listHeader = useMemo(() => {
     if (!household || !list) {
