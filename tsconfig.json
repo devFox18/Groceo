@@ -2,10 +2,13 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "moduleResolution": "node",
+    "types": ["node", "react", "react-native"],
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["src/*", "app/*", "assets/*"]
     }
   },
   "include": [

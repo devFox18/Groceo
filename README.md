@@ -1,50 +1,86 @@
-# Welcome to your Expo app 👋
+# Groceo — Your groceries, simplified.
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Groceo is a smart grocery companion for households. Plan lists together, keep inventory in sync, and build the foundation for future automations such as AI-powered suggestions and receipt scanning.
 
-## Get started
+## ✨ Features
 
-1. Install dependencies
+- Supabase Auth with email + password sign up and sign in.
+- Shared households: create or switch between households with scoped grocery lists.
+- Realtime grocery list updates powered by Supabase Realtime.
+- Modern Expo Router navigation with onboarding, auth, home, and profile flows.
+- TypeScript-first architecture with reusable components, hooks, and state.
 
-   ```bash
-   npm install
-   ```
+## 🧱 Tech Stack
 
-2. Start the app
+- Expo (React Native) + Expo Router
+- Supabase (Auth, Database, Realtime)
+- Zustand for client state
+- TypeScript, ESLint, Prettier, GitHub Actions CI
 
-   ```bash
-   npx expo start
-   ```
+## 🚀 Getting Started
 
-In the output, you'll find options to open the app in a
+### Prerequisites
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- Node.js 18+
+- npm 9+
+- Expo CLI (`npm install -g expo-cli`) – optional but recommended
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+### Install dependencies
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Configure environment variables
 
-## Learn more
+Copy `.env.example` to `.env` and fill in your Supabase project details:
 
-To learn more about developing your project with Expo, look at the following resources:
+```env
+EXPO_PUBLIC_SUPABASE_URL=your-project-url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-public-anon-key
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+These values are exposed to the app via `app.config.ts` and consumed by `src/lib/supabase.ts`.
 
-## Join the community
+### Database setup
 
-Join our community of developers creating universal apps.
+1. Open the Supabase SQL editor for your project.
+2. Paste the contents of `database/migrations.sql`.
+3. Run the script to create tables, indexes, and row-level security policies.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Start the development server
+
+```bash
+npm run start
+```
+
+Use the Expo Dev Tools to open the app on iOS, Android, or web.
+
+## 🧪 Quality checks
+
+- `npm run lint` – runs ESLint with the project config.
+- `npm run typecheck` – TypeScript type checking with `tsc --noEmit`.
+
+The GitHub Actions workflow (`.github/workflows/ci.yml`) runs both commands on each push.
+
+## 🧭 Project Structure
+
+```
+app/                Expo Router routes (onboarding, auth, tabs)
+src/components/     Reusable UI components
+src/hooks/          Custom hooks (e.g., realtime lists)
+src/lib/            Supabase client and theme
+src/state/          Session store using Zustand
+src/utils/          Helper utilities (toast)
+database/           SQL migrations
+```
+
+## ⚠️ Known Issues & Notes
+
+- Without Supabase credentials the app runs in a limited demo state. A warning banner appears and data features are disabled.
+- Password reset flow is not yet implemented; the UI displays a placeholder toast.
+- Future integrations (AI suggestions, OCR scanning) are not yet implemented but the architecture leaves space for them.
+
+## 📄 License
+
+This project is licensed under the MIT License – see [LICENSE](./LICENSE) for details.
