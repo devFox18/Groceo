@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   },
   listSubtitle: {
     ...textStyles.subtitle,
-    color: colors.muted,
+    color: colors.textSecondary,
   },
   itemForm: {
     gap: spacing.md,
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
   },
   helperText: {
     ...textStyles.body,
-    color: colors.muted,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   form: {
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   errorText: {
-    color: colors.danger,
+    color: colors.error,
     textAlign: 'center',
   },
 });

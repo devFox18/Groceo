@@ -33,14 +33,15 @@ export function Button({
         pressed && !isDisabled && styles.pressed,
       ]}>
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#FFFFFF' : colors.primary} />
+        <ActivityIndicator color={variant === 'primary' ? colors.surface : colors.primary} />
       ) : (
         <Text
           style={[
             textStyles.body,
             styles.text,
             variant === 'primary' ? styles.textPrimary : styles.textGhost,
-            isDisabled && styles.textDisabled,
+            isDisabled &&
+              (variant === 'primary' ? styles.textPrimaryDisabled : styles.textGhostDisabled),
           ]}>
           {title}
         </Text>
@@ -77,12 +78,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   textPrimary: {
-    color: '#FFFFFF',
+    color: colors.surface,
   },
   textGhost: {
-    color: colors.primary,
+    color: colors.primaryDark,
   },
-  textDisabled: {
-    color: '#FFFFFF',
+  textPrimaryDisabled: {
+    color: colors.surface,
+  },
+  textGhostDisabled: {
+    color: colors.textSecondary,
   },
 });

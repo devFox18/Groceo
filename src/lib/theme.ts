@@ -1,13 +1,7 @@
+import { colors as brandColors } from '@/theme/colors';
+
 export const colors = {
-  primary: '#57C785',
-  secondary: '#FFE490',
-  dark: '#2B2B2B',
-  background: '#FFFFFF',
-  surface: '#F5F6F8',
-  border: '#E5E7EB',
-  text: '#1F2933',
-  muted: '#6B7280',
-  danger: '#EF4444',
+  ...brandColors,
 } as const;
 
 export const spacing = {
@@ -29,21 +23,21 @@ export const textStyles = {
   title: {
     fontSize: 28,
     fontWeight: '700' as const,
-    color: colors.dark,
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 18,
     fontWeight: '600' as const,
-    color: colors.muted,
+    color: colors.textSecondary,
   },
   body: {
     fontSize: 16,
     fontWeight: '400' as const,
-    color: colors.text,
+    color: colors.textPrimary,
   },
   caption: {
     fontSize: 14,
-    color: colors.muted,
+    color: colors.textSecondary,
   },
 } as const;
 

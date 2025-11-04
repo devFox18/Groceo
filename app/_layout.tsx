@@ -89,13 +89,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   banner: {
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.accent,
     padding: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   bannerText: {
-    color: colors.dark,
+    color: colors.textPrimary,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -107,6 +107,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   loaderText: {
-    color: colors.muted,
+    color: colors.textSecondary,
   },
 });

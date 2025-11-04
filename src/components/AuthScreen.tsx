@@ -68,7 +68,7 @@ export function AuthScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
   flex: {
     flex: 1,
@@ -95,16 +95,16 @@ const styles = StyleSheet.create({
   brandInitial: {
     fontSize: 28,
     fontWeight: '700',
-    color: colors.background,
+    color: colors.surface,
   },
   heroTitle: {
     fontSize: 32,
     fontWeight: '700',
-    color: colors.dark,
+    color: colors.textPrimary,
   },
   heroSubtitle: {
     ...textStyles.body,
-    color: colors.muted,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   learnButton: {
@@ -118,11 +118,11 @@ const styles = StyleSheet.create({
   },
   learnButtonText: {
     ...textStyles.caption,
-    color: colors.primary,
+    color: colors.primaryDark,
     fontWeight: '600',
   },
   card: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: spacing.xl,
     gap: spacing.md,
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...textStyles.body,
-    color: colors.muted,
+    color: colors.textSecondary,
   },
   form: {
     gap: spacing.md,

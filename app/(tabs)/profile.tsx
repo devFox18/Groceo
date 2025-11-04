@@ -245,14 +245,14 @@ const styles = StyleSheet.create({
   },
   muted: {
     ...textStyles.body,
-    color: colors.muted,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   heading: {
     ...textStyles.title,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     padding: spacing.lg,
     borderRadius: radius.lg,
     gap: spacing.md,
@@ -264,11 +264,11 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.dark,
+    color: colors.textPrimary,
   },
   label: {
     fontSize: 14,
-    color: colors.muted,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
@@ -287,11 +287,11 @@ const styles = StyleSheet.create({
   },
   householdItemActive: {
     borderColor: colors.primary,
-    backgroundColor: '#E9F9F1',
+    backgroundColor: 'rgba(61, 220, 132, 0.12)',
   },
   householdName: {
     fontWeight: '600',
-    color: colors.dark,
+    color: colors.textPrimary,
   },
   householdNameActive: {
     color: colors.primary,

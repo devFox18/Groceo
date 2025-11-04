@@ -1,7 +1,7 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ComponentProps } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { Button } from '@/components/Button';
 import { colors, radius, spacing, textStyles } from '@/lib/theme';
@@ -45,7 +45,7 @@ const illustrationConfig: Record<OnboardingIllustration, IllustrationConfig> = {
     gradient: ['#BEE3F8', '#90CDF4'],
     icon: 'rocket-launch-outline',
     accents: [
-      { icon: 'account-heart-outline', label: 'Invite fam' },
+      { icon: 'account-heart-outline', label: 'Invite your family' },
       { icon: 'fire', label: 'Get cooking' },
     ],
   },
@@ -89,12 +89,12 @@ export function OnboardingSlide({
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroIcon}>
-            <MaterialCommunityIcons name={config.icon} size={60} color={colors.dark} />
+            <MaterialCommunityIcons name={config.icon} size={60} color={colors.textPrimary} />
           </LinearGradient>
           <View style={styles.heroAccents}>
             {config.accents.map((accent) => (
               <View key={accent.label} style={styles.accentPill}>
-                <MaterialCommunityIcons name={accent.icon} size={18} color={colors.dark} />
+                <MaterialCommunityIcons name={accent.icon} size={18} color={colors.textPrimary} />
                 <Text style={styles.accentText}>{accent.label}</Text>
               </View>
             ))}
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     width: '100%',
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.md,
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   },
   accentText: {
     ...textStyles.caption,
-    color: colors.dark,
+    color: colors.textPrimary,
     fontWeight: '600',
   },
   copy: {
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...textStyles.body,
-    color: colors.muted,
+    color: colors.textSecondary,
   },
   actions: {
     gap: spacing.sm,
@@ -206,6 +206,6 @@ const styles = StyleSheet.create({
   secondaryHint: {
     ...textStyles.caption,
     textAlign: 'center',
-    color: colors.muted,
+    color: colors.textSecondary,
   },
 });

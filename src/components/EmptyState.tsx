@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
   },
   description: {
     ...textStyles.body,
-    color: colors.muted,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
 });

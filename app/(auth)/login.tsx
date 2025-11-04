@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     ...textStyles.body,
-    color: colors.muted,
+    color: colors.textSecondary,
   },
   footerLink: {
     color: colors.primary,

@@ -21,7 +21,7 @@ export const TextField = forwardRef<TextInput, Props>(({ label, error, style, ..
       <TextInput
         ref={ref}
         style={[styles.input, style, error && styles.inputError]}
-        placeholderTextColor={colors.muted}
+        placeholderTextColor={colors.textSecondary}
         {...rest}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -46,14 +46,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     fontSize: 16,
-    color: colors.text,
-    backgroundColor: '#FFFFFF',
+    color: colors.textPrimary,
+    backgroundColor: colors.surface,
   },
   inputError: {
-    borderColor: colors.danger,
+    borderColor: colors.error,
   },
   error: {
-    color: colors.danger,
+    color: colors.error,
     fontSize: 13,
   },
 });

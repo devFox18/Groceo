@@ -25,7 +25,7 @@ export function ItemRow({ item, onToggle, onDelete }: ItemRowProps) {
         accessibilityState={{ checked: item.checked }}
         onPress={() => onToggle(item)}
         style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
-        {item.checked ? <Feather name="check" size={16} color="#FFFFFF" /> : null}
+        {item.checked ? <Feather name="check" size={16} color={colors.surface} /> : null}
       </Pressable>
       <View style={styles.content}>
         <Text style={[styles.name, item.checked && styles.nameChecked]}>{item.name}</Text>
@@ -36,7 +36,7 @@ export function ItemRow({ item, onToggle, onDelete }: ItemRowProps) {
         accessibilityLabel={`Delete ${item.name}`}
         onPress={() => onDelete(item)}
         style={styles.delete}>
-        <Feather name="trash-2" size={18} color={colors.danger} />
+        <Feather name="trash-2" size={18} color={colors.error} />
       </Pressable>
     </View>
   );
@@ -48,13 +48,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.md,
     borderRadius: radius.md,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     gap: spacing.md,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   checkedBackground: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderColor: colors.border,
   },
   checkbox: {
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   checkboxChecked: {
     backgroundColor: colors.primary,
@@ -80,12 +80,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   nameChecked: {
-    color: colors.muted,
+    color: colors.textSecondary,
     textDecorationLine: 'line-through',
   },
   meta: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.textSecondary,
   },
   delete: {
     padding: spacing.xs,
