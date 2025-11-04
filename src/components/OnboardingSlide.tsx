@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { ComponentProps } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import type { ComponentProps, ReactNode } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { colors, radius, spacing, textStyles } from '@/lib/theme';
@@ -10,13 +11,15 @@ export type OnboardingIllustration = 'plan' | 'shop' | 'remember' | 'start';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
-type IllustrationConfig = {
+export type IllustrationConfig = {
   gradient: [string, string];
   icon: IconName;
   accents: Array<{ icon: IconName; label: string }>;
+  // Set this to a require(...) when bespoke onboarding art is ready.
+  image?: ImageSourcePropType;
 };
 
-const illustrationConfig: Record<OnboardingIllustration, IllustrationConfig> = {
+export const illustrationConfig: Record<OnboardingIllustration, IllustrationConfig> = {
   plan: {
     gradient: ['#FEEBC8', '#FBD38D'],
     icon: 'clipboard-text-outline',
@@ -24,6 +27,7 @@ const illustrationConfig: Record<OnboardingIllustration, IllustrationConfig> = {
       { icon: 'account-group', label: 'Family list' },
       { icon: 'plus-circle-outline', label: 'Add together' },
     ],
+    image: require('../../assets/images/onboarding/plan.png'),
   },
   shop: {
     gradient: ['#C6F6D5', '#9AE6B4'],
@@ -62,6 +66,110 @@ type OnboardingSlideProps = {
   isLast: boolean;
 };
 
+type OnboardingHeroProps = {
+  illustration: OnboardingIllustration;
+  accentContent?: ReactNode | null;
+  imageOverride?: ImageSourcePropType;
+};
+
+export function OnboardingHero({ illustration, accentContent, imageOverride }: OnboardingHeroProps) {
+  const config = illustrationConfig[illustration];
+  const artwork = imageOverride ?? config.image;
+  const accentContentToRender =
+    accentContent === undefined
+      ? config.accents.map((accent) => (
+          <HeroAccentPill key={accent.label} icon={accent.icon} label={accent.label} />
+        ))
+      : accentContent;
+
+  return (
+    <View style={styles.heroWrapper}>
+      <LinearGradient
+        colors={config.gradient}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={[styles.heroBackdrop, styles.heroBackdropTop]}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={config.gradient}
+        start={{ x: 0, y: 1 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.heroBackdrop, styles.heroBackdropBottom]}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={config.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroGlow}
+      />
+      <View style={styles.heroCard}>
+        <LinearGradient
+          colors={[config.gradient[0], config.gradient[1]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCardGradient}
+          pointerEvents="none"
+        />
+        {artwork ? (
+          <View style={styles.heroImageContainer}>
+            <LinearGradient
+              colors={[config.gradient[0], config.gradient[1]]}
+              start={{ x: 0.1, y: 0 }}
+              end={{ x: 0.9, y: 1 }}
+              style={[styles.heroImageAura, styles.heroImageAuraPrimary]}
+              pointerEvents="none"
+            />
+            <LinearGradient
+              colors={[colors.surface, 'rgba(255,255,255,0)']}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={[styles.heroImageAura, styles.heroImageAuraSecondary]}
+              pointerEvents="none"
+            />
+            <LinearGradient
+              colors={['rgba(0,0,0,0.16)', 'rgba(0,0,0,0)']}
+              start={{ x: 0.5, y: 1 }}
+              end={{ x: 0.5, y: 0 }}
+              style={styles.heroImageShadow}
+              pointerEvents="none"
+            />
+            <Image source={artwork} style={styles.heroImage} resizeMode="contain" />
+          </View>
+        ) : (
+          <LinearGradient
+            colors={config.gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroIcon}>
+            <MaterialCommunityIcons name={config.icon} size={60} color={colors.textPrimary} />
+          </LinearGradient>
+        )}
+        {accentContentToRender ? <View style={styles.heroAccents}>{accentContentToRender}</View> : null}
+      </View>
+    </View>
+  );
+}
+
+type HeroAccentPillProps = {
+  icon: IconName;
+  label: string;
+};
+
+export function HeroAccentPill({ icon, label }: HeroAccentPillProps) {
+  return (
+    <LinearGradient
+      colors={['rgba(255,255,255,0.92)', 'rgba(255,255,255,0.74)']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.accentPill}>
+      <MaterialCommunityIcons name={icon} size={18} color={colors.textPrimary} />
+      <Text style={styles.accentText}>{label}</Text>
+    </LinearGradient>
+  );
+}
+
 export function OnboardingSlide({
   title,
   subtitle,
@@ -72,35 +180,9 @@ export function OnboardingSlide({
   illustration,
   isLast,
 }: OnboardingSlideProps) {
-  const config = illustrationConfig[illustration];
-
   return (
     <View style={styles.slide}>
-      <View style={styles.heroWrapper}>
-        <LinearGradient
-          colors={config.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroGlow}
-        />
-        <View style={styles.heroCard}>
-          <LinearGradient
-            colors={config.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroIcon}>
-            <MaterialCommunityIcons name={config.icon} size={60} color={colors.textPrimary} />
-          </LinearGradient>
-          <View style={styles.heroAccents}>
-            {config.accents.map((accent) => (
-              <View key={accent.label} style={styles.accentPill}>
-                <MaterialCommunityIcons name={accent.icon} size={18} color={colors.textPrimary} />
-                <Text style={styles.accentText}>{accent.label}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </View>
+      <OnboardingHero illustration={illustration} />
 
       <View style={styles.copy}>
         <Text style={styles.title}>{title}</Text>
@@ -129,9 +211,9 @@ export function OnboardingSlide({
 const styles = StyleSheet.create({
   slide: {
     flex: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xl * 1.2,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg * 1.2,
     justifyContent: 'space-between',
     gap: spacing.lg,
   },
@@ -148,17 +230,39 @@ const styles = StyleSheet.create({
     opacity: 0.35,
     transform: [{ rotate: '-6deg' }],
   },
+  heroBackdrop: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    opacity: 0.18,
+    transform: [{ rotate: '18deg' }, { scaleX: 1.2 }],
+  },
+  heroBackdropTop: {
+    top: -40,
+    right: spacing.xl,
+  },
+  heroBackdropBottom: {
+    bottom: -36,
+    left: spacing.lg,
+    transform: [{ rotate: '-22deg' }, { scaleX: 1.35 }],
+  },
   heroCard: {
     width: '100%',
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255,255,255,0.87)',
     borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.md,
     shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 6,
+    shadowOpacity: 0.06,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  heroCardGradient: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.18,
   },
   heroIcon: {
     width: '100%',
@@ -166,6 +270,38 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  heroImageContainer: {
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  heroImageAura: {
+    position: 'absolute',
+    width: '90%',
+    height: '82%',
+    borderRadius: radius.lg * 1.8,
+    opacity: 0.38,
+  },
+  heroImageAuraPrimary: {
+    transform: [{ rotate: '-6deg' }],
+  },
+  heroImageAuraSecondary: {
+    opacity: 0.5,
+    transform: [{ rotate: '11deg' }],
+  },
+  heroImageShadow: {
+    position: 'absolute',
+    bottom: spacing.md * -0.15,
+    width: '74%',
+    height: '24%',
+    borderRadius: 120,
+    transform: [{ scaleX: 1.4 }],
+  },
+  heroImage: {
+    width: '94%',
+    height: '94%',
   },
   heroAccents: {
     flexDirection: 'row',
@@ -177,10 +313,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs * 1.5,
+    borderRadius: radius.lg,
+    shadowColor: '#6B7280',
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
   accentText: {
     ...textStyles.caption,
@@ -188,15 +328,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   copy: {
-    gap: spacing.sm,
+    gap: spacing.xs,
+    alignItems: 'center',
   },
   title: {
     ...textStyles.title,
-    textAlign: 'left',
+    textAlign: 'center',
+    fontSize: 32,
+    lineHeight: 38,
+    letterSpacing: -0.3,
   },
   subtitle: {
     ...textStyles.body,
+    textAlign: 'center',
     color: colors.textSecondary,
+    fontSize: 16,
+    lineHeight: 22,
   },
   actions: {
     gap: spacing.sm,
