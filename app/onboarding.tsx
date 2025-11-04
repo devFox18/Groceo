@@ -24,9 +24,11 @@ type QuizOption = {
   icon?: IconName;
 };
 
+type MilestoneKey = 'crew' | 'rhythm' | 'setup';
+
 type StepBase = {
   key: string;
-  milestone: string;
+  milestone: MilestoneKey;
   illustration: OnboardingIllustration;
   title: string;
   subtitle: string;
@@ -53,6 +55,40 @@ type OnboardingStep = IntroStep | QuizStep | SummaryStep;
 
 type Answers = Record<string, string | string[]>;
 
+const milestoneMeta: Record<
+  MilestoneKey,
+  { label: string; description: string; icon: IconName }
+> = {
+  crew: {
+    label: 'Your crew',
+    description: 'Let us know who shops with you so we can welcome them in.',
+    icon: 'account-group-outline',
+  },
+  rhythm: {
+    label: 'Your rhythm',
+    description: 'Share your grocery tempo so reminders land right on time.',
+    icon: 'clock-outline',
+  },
+  setup: {
+    label: 'Your setup',
+    description: "See the little boosts we'll prep based on what matters most.",
+    icon: 'rocket-launch-outline',
+  },
+};
+
+function stepHasAnswer(step: OnboardingStep, answers: Answers): boolean {
+  if (step.type !== 'quiz') {
+    return true;
+  }
+
+  const value = answers[step.key];
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+
+  return typeof value === 'string' && value.length > 0;
+}
+
 export default function OnboardingScreen() {
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
@@ -62,77 +98,77 @@ export default function OnboardingScreen() {
     () => [
       {
         key: 'intro',
-        milestone: 'Plan',
+        milestone: 'crew',
         illustration: 'plan',
         type: 'intro',
-        title: 'Plan smarter together',
-        subtitle: 'Groceo builds one smart list for the whole household. Let’s tailor it in a few taps.',
-        primaryLabel: 'Getting started',
+        title: "Let's make grocery time easy",
+        subtitle: "A couple of friendly questions helps Groceo feel like it was made for your household.",
+        primaryLabel: 'Start 1-minute setup',
         secondaryAction: 'login',
         secondaryLabel: 'Log in instead',
       },
       {
         key: 'household',
-        milestone: 'Sync',
+        milestone: 'crew',
         illustration: 'shop',
         type: 'quiz',
-        title: 'Who’s sharing this list?',
-        subtitle: 'Pick everyone who usually shops or cooks with you.',
+        title: 'Who usually shops with you?',
+        subtitle: 'Invite the people who add items, cook together, or help keep the fridge stocked.',
         options: [
-          { id: 'partner', label: 'Partner', description: 'We plan trips together', icon: 'account-heart-outline' },
-          { id: 'roommates', label: 'Roommates', description: 'We split the essentials', icon: 'account-multiple-outline' },
-          { id: 'kids', label: 'Kids or teens', description: 'They add what they need', icon: 'account-child-outline' },
-          { id: 'caregiver', label: 'Caregiver', description: 'Helps restock staples', icon: 'hand-heart' },
-          { id: 'just-me', label: 'Just me', description: 'I’m flying solo', icon: 'account-circle-outline' },
+          { id: 'partner', label: 'Partner or spouse', description: 'We tackle the list side by side', icon: 'account-heart-outline' },
+          { id: 'roommates', label: 'Roommates', description: 'We split pantry wins and chores', icon: 'account-multiple-outline' },
+          { id: 'kids', label: 'Kids or teens', description: "They add what they're craving", icon: 'account-child-outline' },
+          { id: 'caregiver', label: 'Grandparent or caregiver', description: 'They help keep staples topped up', icon: 'hand-heart' },
+          { id: 'just-me', label: 'Just me for now', description: "I'm the one steering grocery duty", icon: 'account-circle-outline' },
         ],
         multi: true,
-        primaryLabel: 'Next',
-        secondaryLabel: 'Skip question',
+        primaryLabel: 'Save & continue',
+        secondaryLabel: "I'll invite them later",
         secondaryAction: 'skip',
       },
       {
         key: 'cadence',
-        milestone: 'Sync',
+        milestone: 'rhythm',
         illustration: 'remember',
         type: 'quiz',
-        title: 'How often do you shop?',
-        subtitle: 'We’ll time nudges and restock reminders around your rhythm.',
+        title: 'How do grocery runs usually go?',
+        subtitle: "We'll nudge you before a fridge scramble and keep reminders at the right tempo.",
         options: [
-          { id: 'weekly', label: 'Every week', description: 'Same day or two each week', icon: 'calendar-week' },
-          { id: 'biweekly', label: 'Every other week', description: 'Bigger hauls, less often', icon: 'calendar-range' },
-          { id: 'monthly', label: 'Monthly stock-up', description: 'Bulk runs and pantry refills', icon: 'calendar-month' },
-          { id: 'as-needed', label: 'Whenever needed', description: 'We go when the list fills up', icon: 'calendar-question' },
+          { id: 'weekly', label: 'Weekly rhythm', description: 'We head out once or twice each week', icon: 'calendar-week' },
+          { id: 'biweekly', label: 'Every other week', description: 'Bigger runs every couple of weeks', icon: 'calendar-range' },
+          { id: 'monthly', label: 'Monthly stock-up', description: 'Bulk trips to keep the pantry happy', icon: 'calendar-month' },
+          { id: 'as-needed', label: 'Whenever the fridge looks empty', description: 'We dash out when the list gets long', icon: 'calendar-question' },
         ],
-        primaryLabel: 'Next',
-        secondaryLabel: 'Skip question',
+        primaryLabel: 'Save & continue',
+        secondaryLabel: "We'll set this later",
         secondaryAction: 'skip',
       },
       {
         key: 'focus',
-        milestone: 'Start',
+        milestone: 'setup',
         illustration: 'start',
         type: 'quiz',
-        title: 'What do you want help with most?',
-        subtitle: 'We’ll spotlight features tuned to your priorities.',
+        title: 'What would make grocery time feel easier?',
+        subtitle: "Pick the magic you'd love Groceo to bring your household.",
         options: [
-          { id: 'never-miss', label: 'Never miss a staple', description: 'Smarter pantry reminders', icon: 'bell-outline' },
-          { id: 'faster-trips', label: 'Speed through trips', description: 'Sorted store views & Smart Check', icon: 'clock-outline' },
-          { id: 'shared-planning', label: 'Shared planning', description: 'Assign items and meal ideas', icon: 'clipboard-text-outline' },
-          { id: 'budget', label: 'Stay on budget', description: 'Track spend and promos', icon: 'currency-usd' },
+          { id: 'never-miss', label: 'Never running out', description: 'Gentle pantry reminders before favourites disappear', icon: 'bell-outline' },
+          { id: 'faster-trips', label: 'Faster grocery runs', description: 'Smart store order and real-time checklists', icon: 'clock-outline' },
+          { id: 'shared-planning', label: 'Less list juggling', description: 'Meal ideas and assignments all in one cozy hub', icon: 'clipboard-text-outline' },
+          { id: 'budget', label: 'Sticking to a budget', description: 'Track spending and catch the weekly wins', icon: 'currency-usd' },
         ],
-        primaryLabel: 'See my setup',
-        secondaryLabel: 'Skip question',
+        primaryLabel: 'Show my Groceo plan',
+        secondaryLabel: "We'll choose later",
         secondaryAction: 'skip',
       },
       {
         key: 'summary',
-        milestone: 'Start',
+        milestone: 'setup',
         illustration: 'plan',
         type: 'summary',
-        title: 'Ready for your Groceo household',
-        subtitle: 'Here’s what we’ll line up so you can hit the ground running.',
-        primaryLabel: 'Create household',
-        secondaryLabel: 'Go back',
+        title: 'Your Groceo home is ready',
+        subtitle: "We've lined up a grocery groove that fits the people you care for.",
+        primaryLabel: 'Create your household',
+        secondaryLabel: 'Review answers',
         secondaryAction: 'back',
       },
     ],
@@ -140,14 +176,33 @@ export default function OnboardingScreen() {
   );
 
   const milestones = useMemo(() => {
-    const seen = new Set<string>();
-    return steps.reduce<Array<{ label: string; index: number }>>((acc, step, index) => {
-      if (!seen.has(step.milestone)) {
-        seen.add(step.milestone);
-        acc.push({ label: step.milestone, index });
+    const groups: Array<{
+      key: MilestoneKey;
+      label: string;
+      description: string;
+      icon: IconName;
+      startIndex: number;
+      endIndex: number;
+    }> = [];
+
+    steps.forEach((step, index) => {
+      const existing = groups.find((group) => group.key === step.milestone);
+      if (existing) {
+        existing.endIndex = index;
+      } else {
+        const meta = milestoneMeta[step.milestone];
+        groups.push({
+          key: step.milestone,
+          label: meta.label,
+          description: meta.description,
+          icon: meta.icon,
+          startIndex: index,
+          endIndex: index,
+        });
       }
-      return acc;
-    }, []);
+    });
+
+    return groups;
   }, [steps]);
 
   const summaryHighlights = useMemo(() => {
@@ -160,40 +215,40 @@ export default function OnboardingScreen() {
       const isSolo = householdAnswer.length === 1 && householdAnswer[0] === 'just-me';
       highlights.push({
         icon: isSolo ? 'account-circle-outline' : 'account-group',
-        label: isSolo ? 'Solo list tuned to you' : 'Shared list set up for your crew',
+        label: isSolo ? 'Groceo will keep your solo list humming' : 'Shared list ready for your whole crew',
       });
     } else {
       highlights.push({
         icon: 'clipboard-check-outline',
-        label: 'Smart suggestions ready out of the box',
+        label: "We'll suggest staples to kick things off",
       });
     }
 
     if (typeof cadenceAnswer === 'string' && cadenceAnswer.length > 0) {
       const cadenceTextMap: Record<string, string> = {
-        weekly: 'Weekly rhythm reminders at the right time',
-        biweekly: 'Bi-weekly planning nudges queued up',
-        monthly: 'Monthly stock-up planning insights',
-        'as-needed': 'On-demand alerts when staples run low',
+        weekly: 'Weekly gentle reminders before the fridge runs dry',
+        biweekly: 'Every-other-week nudges tuned to your pace',
+        monthly: 'Monthly stock-up planning so shelves stay happy',
+        'as-needed': 'On-demand alerts when favourites run low',
       };
       highlights.push({
         icon: 'calendar-check',
-        label: cadenceTextMap[cadenceAnswer] ?? 'Personalized shopping cadence',
+        label: cadenceTextMap[cadenceAnswer] ?? 'Personalised shopping cadence',
       });
     }
 
     if (typeof focusAnswer === 'string' && focusAnswer.length > 0) {
       const focusTextMap: Record<string, { icon: IconName; label: string }> = {
-        'never-miss': { icon: 'bell-ring-outline', label: 'Pantry guard keeps staples covered' },
-        'faster-trips': { icon: 'map-marker-radius', label: 'Store-aware list speeds up trips' },
-        'shared-planning': { icon: 'clipboard-plus-outline', label: 'Shared planning tools highlighted' },
-        budget: { icon: 'chart-areaspline', label: 'Budget-friendly tips in focus' },
+        'never-miss': { icon: 'bell-ring-outline', label: 'Pantry guard keeps favourites covered' },
+        'faster-trips': { icon: 'map-marker-radius', label: 'Store-smart lists for quicker trips' },
+        'shared-planning': { icon: 'clipboard-plus-outline', label: 'Shared planning tools on standby' },
+        budget: { icon: 'chart-areaspline', label: 'Budget-friendly insights front and centre' },
       };
-      highlights.push(focusTextMap[focusAnswer] ?? { icon: 'star-outline', label: 'Favorite features prioritized' });
+      highlights.push(focusTextMap[focusAnswer] ?? { icon: 'star-outline', label: 'Favourite features prioritised' });
     } else {
       highlights.push({
         icon: 'lightbulb-on-outline',
-        label: 'Feature tips tailored as you explore',
+        label: 'Helpful tips will pop up as you explore',
       });
     }
 
@@ -201,7 +256,45 @@ export default function OnboardingScreen() {
   }, [answers]);
 
   const currentStep = steps[activeIndex];
-  const progressRatio = steps.length > 1 ? activeIndex / (steps.length - 1) : 0;
+  const stepCompletionStatus = steps.map((step, index) => {
+    if (index < activeIndex) {
+      return true;
+    }
+
+    if (index > activeIndex) {
+      return false;
+    }
+
+    if (step.type === 'summary') {
+      return true;
+    }
+
+    if (step.type === 'quiz') {
+      return stepHasAnswer(step, answers);
+    }
+
+    return false;
+  });
+
+  const milestoneProgress = milestones.map((milestone) => {
+    const totalCount = milestone.endIndex - milestone.startIndex + 1;
+    const stepStatuses = stepCompletionStatus.slice(milestone.startIndex, milestone.endIndex + 1);
+    const completedCount = stepStatuses.filter(Boolean).length;
+    const isCompleted = activeIndex > milestone.endIndex;
+    const isActive = activeIndex >= milestone.startIndex && activeIndex <= milestone.endIndex;
+    const fraction = isCompleted ? 1 : Math.min(1, completedCount / totalCount);
+
+    return {
+      ...milestone,
+      totalCount,
+      completedCount,
+      progressFraction: fraction,
+      isCompleted,
+      isActive,
+    };
+  });
+
+  const activeMilestone = milestoneProgress.find((milestone) => milestone.isActive) ?? milestoneProgress[0];
 
   const handleSelectOption = (optionId: string, step: QuizStep) => {
     setAnswers((prev) => {
@@ -225,17 +318,6 @@ export default function OnboardingScreen() {
     });
   };
 
-  const hasAnswerForStep = (step: OnboardingStep) => {
-    const value = answers[step.key];
-    if (step.type !== 'quiz') {
-      return true;
-    }
-    if (Array.isArray(value)) {
-      return value.length > 0;
-    }
-    return typeof value === 'string' && value.length > 0;
-  };
-
   const goNext = () => {
     setActiveIndex((prev) => Math.min(prev + 1, steps.length - 1));
   };
@@ -244,13 +326,17 @@ export default function OnboardingScreen() {
     setActiveIndex((prev) => Math.max(prev - 1, 0));
   };
 
+  const handleJumpTo = (targetIndex: number) => {
+    setActiveIndex((prev) => (targetIndex < prev ? Math.max(targetIndex, 0) : prev));
+  };
+
   const handlePrimary = () => {
     if (currentStep.type === 'summary') {
       router.replace('/(auth)/register');
       return;
     }
 
-    if (currentStep.type === 'quiz' && !hasAnswerForStep(currentStep)) {
+    if (currentStep.type === 'quiz' && !stepHasAnswer(currentStep, answers)) {
       return;
     }
 
@@ -273,28 +359,12 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleHeaderLogin = () => {
-    router.replace('/(auth)/login');
-  };
-
-  const handleHeaderSkip = () => {
-    router.replace('/(auth)/register');
-  };
-
-  const primaryDisabled = currentStep.type === 'quiz' && !hasAnswerForStep(currentStep);
+  const primaryDisabled = currentStep.type === 'quiz' && !stepHasAnswer(currentStep, answers);
 
   return (
     <LinearGradient colors={['#F6F9FF', '#FFFFFF']} style={styles.screen}>
       <StatusBar barStyle="dark-content" />
-      <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={handleHeaderLogin} hitSlop={8}>
-          <Text style={styles.headerLink}>Log in</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" onPress={handleHeaderSkip} hitSlop={8}>
-          <Text style={styles.headerLink}>Skip</Text>
-        </Pressable>
-      </View>
-
+      <View style={styles.header} />
       <View style={styles.heroSection}>
         <OnboardingHero
           illustration={currentStep.illustration}
@@ -304,21 +374,66 @@ export default function OnboardingScreen() {
 
       <View style={styles.bottomCard}>
         <View style={styles.progressContainer}>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
+          <View style={styles.progressHeader}>
+            <View style={styles.progressTrack}>
+              {milestoneProgress.map((milestone, index) => (
+                <Pressable
+                  key={milestone.key}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: !milestone.isCompleted }}
+                  disabled={!milestone.isCompleted}
+                  onPress={() => handleJumpTo(milestone.startIndex)}
+                  style={[
+                    styles.progressSegment,
+                    index !== milestoneProgress.length - 1 && styles.progressSegmentSpacing,
+                  ]}>
+                  <View
+                    style={[
+                      styles.progressSegmentFill,
+                      {
+                        width: `${milestone.progressFraction * 100}%`,
+                        opacity: milestone.isCompleted ? 1 : 0.95,
+                      },
+                    ]}
+                  />
+                </Pressable>
+              ))}
+            </View>
           </View>
           <View style={styles.milestoneRow}>
-            {milestones.map((milestone) => {
-              const isActive = activeIndex >= milestone.index;
-              return (
+            {milestoneProgress.map((milestone) => (
+              <View key={milestone.key} style={styles.milestoneItem}>
+                <View
+                  style={[
+                    styles.milestoneStatus,
+                    milestone.isCompleted && styles.milestoneStatusCompleted,
+                    milestone.isActive && styles.milestoneStatusActive,
+                  ]}>
+                  <MaterialCommunityIcons
+                    name={milestone.isCompleted ? 'check' : milestone.icon}
+                    size={14}
+                    color={milestone.isCompleted ? colors.surface : colors.primary}
+                  />
+                </View>
                 <Text
-                  key={milestone.label}
-                  style={[styles.milestoneLabel, isActive && styles.milestoneLabelActive]}>
+                  style={[
+                    styles.milestoneLabel,
+                    milestone.isActive && styles.milestoneLabelActive,
+                  ]}>
                   {milestone.label}
                 </Text>
-              );
-            })}
+                <View style={styles.milestoneDotRow}>
+                  {Array.from({ length: milestone.totalCount }).map((_, dotIndex) => {
+                    const isFilled = dotIndex < milestone.completedCount;
+                    return <View key={dotIndex} style={[styles.milestoneDot, isFilled && styles.milestoneDotFilled]} />;
+                  })}
+                </View>
+              </View>
+            ))}
           </View>
+          {activeMilestone?.description ? (
+            <Text style={styles.milestoneDescription}>{activeMilestone.description}</Text>
+          ) : null}
         </View>
 
         <View style={styles.copy}>
@@ -382,8 +497,8 @@ function resolveHeroAccents(step: OnboardingStep) {
   if (step.key === 'intro') {
     return (
       <>
-        <HeroAccentPill icon="clock-check-outline" label="2-minute setup" />
-        <HeroAccentPill icon="star-circle-outline" label="Personalized tips" />
+        <HeroAccentPill icon="clock-check-outline" label="Quick family setup" />
+        <HeroAccentPill icon="star-circle-outline" label="Tailored to your crew" />
       </>
     );
   }
@@ -447,17 +562,11 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     zIndex: 1,
-  },
-  headerLink: {
-    ...textStyles.caption,
-    fontWeight: '600',
-    color: colors.primary,
-    letterSpacing: 0.2,
   },
   heroSection: {
     flex: 1,
@@ -478,31 +587,83 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   progressContainer: {
-    gap: spacing.xs,
+    gap: spacing.sm,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   progressTrack: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.xs * 0.75,
+  },
+  progressSegment: {
+    flex: 1,
     height: 6,
     borderRadius: radius.md,
     backgroundColor: 'rgba(148,163,184,0.2)',
     overflow: 'hidden',
   },
-  progressFill: {
+  progressSegmentSpacing: {
+    marginRight: 0,
+  },
+  progressSegmentFill: {
     height: '100%',
     borderRadius: radius.md,
     backgroundColor: colors.primary,
   },
   milestoneRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  milestoneItem: {
+    width: '32%',
+    alignItems: 'center',
+    gap: spacing.xs * 0.5,
+  },
+  milestoneStatus: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(79,70,229,0.08)',
+  },
+  milestoneStatusActive: {
+    backgroundColor: 'rgba(79,70,229,0.18)',
+  },
+  milestoneStatusCompleted: {
+    backgroundColor: colors.primary,
   },
   milestoneLabel: {
     ...textStyles.caption,
     color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    fontWeight: '600',
+    letterSpacing: 0.4,
   },
   milestoneLabelActive: {
     color: colors.primaryDark,
+  },
+  milestoneDotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs * 0.5,
+  },
+  milestoneDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+  },
+  milestoneDotFilled: {
+    backgroundColor: colors.primary,
+  },
+  milestoneDescription: {
+    ...textStyles.caption,
+    color: colors.textSecondary,
   },
   copy: {
     gap: spacing.xs,
