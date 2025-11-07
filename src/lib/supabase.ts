@@ -20,7 +20,7 @@ const supabaseAnonKey =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrem9ld3dqaHVobW10aml0bWZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxNjY2MjksImV4cCI6MjA3Nzc0MjYyOX0.3OW4FT3w5nP1OxDWbLaQFqhC-KpIVLsgdxQJC5X_N7E';
 
 export const SUPABASE_WARNING_MESSAGE =
-  'Supabase is not configured. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to enable data features.';
+  'Supabase is niet geconfigureerd. Voeg EXPO_PUBLIC_SUPABASE_URL en EXPO_PUBLIC_SUPABASE_ANON_KEY toe om datamogelijkheden te activeren.';
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 

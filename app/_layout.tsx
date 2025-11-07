@@ -25,7 +25,7 @@ function LoadingScreen() {
   return (
     <View style={styles.loader}>
       <ActivityIndicator size="small" color={colors.primary} />
-      <Text style={styles.loaderText}>Loading Groceo…</Text>
+      <Text style={styles.loaderText}>Groceo wordt geladen…</Text>
     </View>
   );
 }

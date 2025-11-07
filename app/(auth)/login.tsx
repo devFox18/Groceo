@@ -24,7 +24,7 @@ export default function LoginScreen() {
   const handleSubmit = async () => {
     if (!isSupabaseConfigured || !supabase) {
       console.error('[Auth] Login blocked: Supabase credentials missing');
-      toast('Supabase is not configured. Please add your credentials.');
+      toast('Supabase is niet geconfigureerd. Voeg je gegevens toe.');
       return;
     }
 
@@ -33,10 +33,10 @@ export default function LoginScreen() {
 
     const nextErrors: typeof errors = {};
     if (!emailPattern.test(trimmedEmail)) {
-      nextErrors.email = 'Enter a valid email address.';
+      nextErrors.email = 'Vul een geldig e-mailadres in.';
     }
     if (password.length < 6) {
-      nextErrors.password = 'Password must be at least 6 characters.';
+      nextErrors.password = 'Het wachtwoord moet minimaal 6 tekens hebben.';
     }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
@@ -53,53 +53,53 @@ export default function LoginScreen() {
 
     if (error) {
       console.warn('[Auth] Login failed', { email: trimmedEmail, error: error.message });
-      toast('Failed to sign in. Please check your credentials.');
+      toast('Inloggen is niet gelukt. Controleer je gegevens.');
       return;
     }
 
     console.log('[Auth] Login successful', { email: trimmedEmail });
-    toast('Welcome back to Groceo!');
+    toast('Welkom terug bij Groceo!');
     router.replace('/(tabs)');
   };
 
   return (
     <AuthScreen
-      title="Welcome back"
-      subtitle="Log in to see what the household needs next."
-      learnLabel="How Groceo works"
+      title="Welkom terug"
+      subtitle="Log in om te zien wat je huishouden nodig heeft."
+      learnLabel="Zo werkt Groceo"
       onPressLearn={() => router.replace('/onboarding')}
       footer={
         <View style={styles.footerCta}>
-          <Text style={styles.footerText}>Need an account?</Text>
+          <Text style={styles.footerText}>Nog geen account?</Text>
           <TouchableOpacity
             style={styles.footerButton}
             onPress={() => router.replace('/(auth)/register')}>
-            <Text style={styles.footerButtonText}>Create one</Text>
+            <Text style={styles.footerButtonText}>Maak er een</Text>
           </TouchableOpacity>
         </View>
       }>
       <TextField
-        label="Email"
+        label="E-mail"
         keyboardType="email-address"
         autoCapitalize="none"
         autoCorrect={false}
         value={email}
         onChangeText={setEmail}
         error={errors.email}
-        placeholder="you@example.com"
+        placeholder="jij@example.com"
       />
       <TextField
-        label="Password"
+        label="Wachtwoord"
         secureTextEntry={!showPassword}
         value={password}
         onChangeText={setPassword}
         error={errors.password}
-        placeholder="Your password"
+        placeholder="Je wachtwoord"
         rightAccessory={
           <TouchableOpacity
             onPress={() => setShowPassword(prev => !prev)}
             accessibilityRole="button"
-            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
+            accessibilityLabel={showPassword ? 'Wachtwoord verbergen' : 'Wachtwoord tonen'}>
             <Feather
               name={showPassword ? 'eye-off' : 'eye'}
               size={20}
@@ -109,11 +109,11 @@ export default function LoginScreen() {
         }
       />
       <View style={styles.helperRow}>
-        <TouchableOpacity onPress={() => toast('Password reset will be available soon.')}>
-          <Text style={styles.helperLink}>Forgot password?</Text>
+        <TouchableOpacity onPress={() => toast('Wachtwoord herstellen kan binnenkort.')}>
+          <Text style={styles.helperLink}>Wachtwoord vergeten?</Text>
         </TouchableOpacity>
       </View>
-      <Button title="Log in" onPress={handleSubmit} loading={loading} />
+      <Button title="Inloggen" onPress={handleSubmit} loading={loading} />
     </AuthScreen>
   );
 }

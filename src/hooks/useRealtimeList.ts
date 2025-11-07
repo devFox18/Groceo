@@ -26,7 +26,7 @@ export function useRealtimeList(listId: string | null) {
         ...prev,
         items: [],
         isLoading: false,
-        error: 'Supabase is not configured.',
+        error: 'Supabase is niet geconfigureerd.',
       }));
       return;
     }

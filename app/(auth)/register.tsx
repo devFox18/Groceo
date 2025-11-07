@@ -32,7 +32,7 @@ export default function RegisterScreen() {
   const handleSubmit = async () => {
     if (!isSupabaseConfigured || !supabase) {
       console.error('[Auth] Sign up blocked: Supabase credentials missing');
-      toast('Supabase is not configured. Please add your credentials.');
+      toast('Supabase is niet geconfigureerd. Voeg je gegevens toe.');
       return;
     }
 
@@ -42,13 +42,13 @@ export default function RegisterScreen() {
     const nextErrors: typeof errors = {};
 
     if (!emailPattern.test(trimmedEmail)) {
-      nextErrors.email = 'Enter a valid email address.';
+      nextErrors.email = 'Vul een geldig e-mailadres in.';
     }
     if (password.length < 6) {
-      nextErrors.password = 'Password must be at least 6 characters.';
+      nextErrors.password = 'Het wachtwoord moet minimaal 6 tekens hebben.';
     }
     if (password !== confirmPassword) {
-      nextErrors.confirmPassword = 'Passwords do not match.';
+      nextErrors.confirmPassword = 'Wachtwoorden komen niet overeen.';
     }
 
     setErrors(nextErrors);
@@ -66,50 +66,50 @@ export default function RegisterScreen() {
 
     if (error) {
       console.error('[Auth] Sign up failed', { email: trimmedEmail, error: error.message });
-      toast('Failed to sign up. Please try again.');
+      toast('Registreren is niet gelukt. Probeer het opnieuw.');
       return;
     }
 
     console.log('[Auth] Sign up successful', { email: trimmedEmail });
-    toast('Account created! Welcome to Groceo.');
+    toast('Account aangemaakt! Welkom bij Groceo.');
     router.replace('/(tabs)');
   };
 
   return (
     <AuthScreen
-      title="Create your account"
-      subtitle="Set up your household hub in just a couple of taps."
-      learnLabel="How Groceo works"
+      title="Maak je account aan"
+      subtitle="Zet je huishoudhub klaar in slechts een paar tikken."
+      learnLabel="Zo werkt Groceo"
       onPressLearn={() => router.replace('/onboarding')}
       footer={
         <View style={styles.footerCta}>
-          <Text style={styles.footerText}>Already have an account?</Text>
+          <Text style={styles.footerText}>Heb je al een account?</Text>
           <TouchableOpacity
             style={styles.footerButton}
             onPress={() => router.replace('/(auth)/login')}>
-            <Text style={styles.footerButtonText}>Log in</Text>
+            <Text style={styles.footerButtonText}>Inloggen</Text>
           </TouchableOpacity>
         </View>
       }>
       <TextField
-        label="Email"
+        label="E-mail"
         keyboardType="email-address"
         autoCapitalize="none"
         autoCorrect={false}
         value={email}
         onChangeText={setEmail}
-        placeholder="you@example.com"
+        placeholder="jij@example.com"
         returnKeyType="next"
         onSubmitEditing={() => passwordRef.current?.focus()}
         error={errors.email}
       />
       <TextField
         ref={passwordRef}
-        label="Password"
+        label="Wachtwoord"
         secureTextEntry={!showPassword}
         value={password}
         onChangeText={setPassword}
-        placeholder="Create a password"
+        placeholder="Kies een wachtwoord"
         returnKeyType="next"
         onSubmitEditing={() => confirmRef.current?.focus()}
         error={errors.password}
@@ -117,7 +117,7 @@ export default function RegisterScreen() {
           <TouchableOpacity
             onPress={() => setShowPassword(prev => !prev)}
             accessibilityRole="button"
-            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
+            accessibilityLabel={showPassword ? 'Wachtwoord verbergen' : 'Wachtwoord tonen'}>
             <Feather
               name={showPassword ? 'eye-off' : 'eye'}
               size={20}
@@ -128,17 +128,17 @@ export default function RegisterScreen() {
       />
       <TextField
         ref={confirmRef}
-        label="Confirm password"
+        label="Bevestig wachtwoord"
         secureTextEntry={!showConfirm}
         value={confirmPassword}
         onChangeText={setConfirmPassword}
-        placeholder="Repeat your password"
+        placeholder="Herhaal je wachtwoord"
         error={errors.confirmPassword}
         rightAccessory={
           <TouchableOpacity
             onPress={() => setShowConfirm(prev => !prev)}
             accessibilityRole="button"
-            accessibilityLabel={showConfirm ? 'Hide password' : 'Show password'}>
+            accessibilityLabel={showConfirm ? 'Wachtwoord verbergen' : 'Wachtwoord tonen'}>
             <Feather
               name={showConfirm ? 'eye-off' : 'eye'}
               size={20}
@@ -147,7 +147,7 @@ export default function RegisterScreen() {
           </TouchableOpacity>
         }
       />
-      <Button title="Sign up" onPress={handleSubmit} loading={loading} />
+      <Button title="Registreren" onPress={handleSubmit} loading={loading} />
     </AuthScreen>
   );
 }

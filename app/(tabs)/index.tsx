@@ -89,27 +89,40 @@ const palette = {
 };
 
 const QUICK_ADD_SUGGESTIONS = [
-  { label: 'Cheese', emoji: '🧀' },
-  { label: 'Milk', emoji: '🥛' },
-  { label: 'Fresh bread', emoji: '🍞' },
+  { label: 'Kaas', emoji: '🧀' },
+  { label: 'Melk', emoji: '🥛' },
+  { label: 'Vers brood', emoji: '🍞' },
   { label: 'Broccoli', emoji: '🥦' },
-  { label: 'Strawberries', emoji: '🍓' },
+  { label: 'Aardbeien', emoji: '🍓' },
 ] as const;
 
 const ICON_MAP: Record<string, string> = {
   cheese: '🧀',
+  kaas: '🧀',
   milk: '🥛',
+  melk: '🥛',
   bread: '🍞',
+  brood: '🍞',
   broccoli: '🥦',
   pasta: '🍝',
   egg: '🥚',
   strawberry: '🍓',
+  aardbei: '🍓',
+  aardbeien: '🍓',
   banana: '🍌',
+  banaan: '🍌',
+  bananen: '🍌',
   coffee: '☕️',
+  koffie: '☕️',
   apple: '🍎',
+  appel: '🍎',
   spinach: '🥬',
+  spinazie: '🥬',
   tomato: '🍅',
+  tomaat: '🍅',
+  tomaten: '🍅',
   yogurt: '🥣',
+  yoghurt: '🥣',
 };
 
 function iconForItem(name: string) {
@@ -308,7 +321,7 @@ export default function HomeScreen() {
       .order('created_at', { ascending: true });
 
     if (error) {
-      toast('Failed to load household information.');
+      toast('Huishoudgegevens laden is niet gelukt.');
       setHousehold(null);
       setList(null);
       setLoadingContext(false);
@@ -354,7 +367,7 @@ export default function HomeScreen() {
       .order('created_at', { ascending: true });
 
     if (listError) {
-      toast('Failed to load grocery lists.');
+      toast('Boodschappenlijsten laden is niet gelukt.');
       setList(null);
       setLoadingContext(false);
       return;
@@ -363,12 +376,12 @@ export default function HomeScreen() {
     if (!lists || lists.length === 0) {
       const { data: createdList, error: createListError } = await supabase
         .from('lists')
-        .insert({ household_id: householdData.id, name: 'Main list' })
+        .insert({ household_id: householdData.id, name: 'Hoofdlijst' })
         .select()
         .single();
 
       if (createListError || !createdList) {
-        toast('Failed to create the default list.');
+        toast('De standaardlijst kon niet worden aangemaakt.');
         setList(null);
         setLoadingContext(false);
         console.error('[Home] Failed to create default list', createListError);
@@ -390,12 +403,12 @@ export default function HomeScreen() {
   const handleCreateHousehold = useCallback(async () => {
     if (!session) return;
     if (!isSupabaseConfigured || !supabase) {
-      toast('Supabase is not configured. Please add your credentials.');
+      toast('Supabase is niet geconfigureerd. Voeg je gegevens toe.');
       console.error('[Home] Unable to create household: Supabase not configured');
       return;
     }
     if (!householdName.trim()) {
-      toast('Household name is required.');
+      toast('Naam van het huishouden is verplicht.');
       return;
     }
 
@@ -418,7 +431,7 @@ export default function HomeScreen() {
         userId: session.user.id,
         householdName: trimmedName,
       });
-      toast('Failed to create household.');
+      toast('Huishouden aanmaken is niet gelukt.');
       setCreatingHousehold(false);
       console.error('[Home] Household creation failed', householdError);
       return;
@@ -426,7 +439,7 @@ export default function HomeScreen() {
 
     const { data: createdList, error: listError } = await supabase
       .from('lists')
-      .insert({ household_id: createdHousehold.id, name: 'Main list' })
+      .insert({ household_id: createdHousehold.id, name: 'Hoofdlijst' })
       .select()
       .single();
 
@@ -436,7 +449,7 @@ export default function HomeScreen() {
         userId: session.user.id,
         householdId: createdHousehold.id,
       });
-      toast('Failed to create default list.');
+      toast('Standaardlijst aanmaken is niet gelukt.');
       setCreatingHousehold(false);
       console.error('[Home] Default list creation failed', listError);
       return;
@@ -454,7 +467,7 @@ export default function HomeScreen() {
         userId: session.user.id,
         householdId: createdHousehold.id,
       });
-      toast('Failed to join household.');
+      toast('Lid worden van het huishouden is niet gelukt.');
       setCreatingHousehold(false);
       console.error('[Home] Failed to add member to household', memberError);
       return;
@@ -465,14 +478,14 @@ export default function HomeScreen() {
     setList({ id: createdList.id, name: createdList.name });
     setHouseholdName('');
     setCreatingHousehold(false);
-    toast('Household created successfully.');
+    toast('Huishouden is aangemaakt.');
   }, [householdName, session, setActiveHouseholdId]);
 
   const addItem = useCallback(
     async ({ name, quantity }: { name: string; quantity?: number }) => {
       if (!list || !session) return false;
       if (!isSupabaseConfigured || !supabase) {
-        toast('Supabase is not configured. Please add your credentials.');
+        toast('Supabase is niet geconfigureerd. Voeg je gegevens toe.');
         console.error('[Home] Unable to add item: Supabase not configured');
         return false;
       }
@@ -480,7 +493,7 @@ export default function HomeScreen() {
 
       const trimmedName = name.trim();
       if (!trimmedName) {
-        toast('Item name is required.');
+        toast('Naam van het item is verplicht.');
         console.warn('[Home] Ignoring add item: empty name');
         return false;
       }
@@ -514,7 +527,7 @@ export default function HomeScreen() {
           .single();
 
         if (error || !data) {
-          toast('Failed to add item.');
+          toast('Item toevoegen is niet gelukt.');
           console.error('[Home] Supabase insert failed for item', error);
           setPendingAdds((prev) => prev.filter((item) => item.tempId !== tempId));
           return false;
@@ -539,7 +552,7 @@ export default function HomeScreen() {
 
   const handleAddItem = useCallback(async () => {
     if (!itemName.trim()) {
-      toast('What should we add?');
+      toast('Wat zullen we toevoegen?');
       return;
     }
     const success = await addItem({ name: itemName, quantity: itemQuantity });
@@ -575,7 +588,7 @@ export default function HomeScreen() {
       }
 
       if (!isSupabaseConfigured || !supabase) {
-        toast('Supabase is not configured.');
+        toast('Supabase is niet geconfigureerd.');
         console.error('[Home] Unable to toggle item: Supabase not configured');
         return;
       }
@@ -589,7 +602,7 @@ export default function HomeScreen() {
         .eq('id', item.id);
 
       if (error) {
-        toast('Unable to update item.');
+        toast('Item bijwerken is niet gelukt.');
         console.error('[Home] Supabase update failed for toggle', error, { itemId: item.id });
         setPendingUpdates((prev) => {
           const next = { ...prev };
@@ -610,37 +623,43 @@ export default function HomeScreen() {
 
   const handleDeleteItem = useCallback(
     async (item: DisplayItem) => {
-      if ('tempId' in item && item.tempId && item.id.startsWith('temp-')) {
+      const wasOnlyOptimistic = Boolean(item.tempId && item.id.startsWith('temp-'));
+
+      if (item.tempId) {
         setPendingAdds((prev) => prev.filter((pending) => pending.tempId !== item.tempId));
-        return;
+        if (wasOnlyOptimistic) {
+          return;
+        }
       }
 
       if (!isSupabaseConfigured || !supabase) {
-        toast('Supabase is not configured.');
+        toast('Supabase is niet geconfigureerd.');
         console.error('[Home] Unable to delete item: Supabase not configured');
         return;
       }
 
+      const targetId = item.resolvedId ?? item.id;
+
       setPendingDeletes((prev) => {
         const next = new Set(prev);
-        next.add(item.id);
+        next.add(targetId);
         return next;
       });
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
-      const { error } = await supabase.from('items').delete().eq('id', item.id);
+      const { error } = await supabase.from('items').delete().eq('id', targetId);
       if (error) {
-        toast('Unable to remove item.');
-        console.error('[Home] Supabase delete failed for item', error, { itemId: item.id });
+        toast('Item verwijderen is niet gelukt.');
+        console.error('[Home] Supabase delete failed for item', error, { itemId: targetId });
         setPendingDeletes((prev) => {
           const next = new Set(prev);
-          next.delete(item.id);
+          next.delete(targetId);
           return next;
         });
         return;
       }
 
-      console.log('[Home] Item removed', { itemId: item.id, name: item.name });
+      console.log('[Home] Item removed', { itemId: targetId, name: item.name });
     },
     [],
   );
@@ -648,12 +667,12 @@ export default function HomeScreen() {
   const handleClearAll = useCallback(async () => {
     if (!list) return;
     if (!isSupabaseConfigured || !supabase) {
-      toast('Supabase is not configured.');
+      toast('Supabase is niet geconfigureerd.');
       console.error('[Home] Unable to clear list: Supabase not configured');
       return;
     }
     if (displayItems.length === 0) {
-      toast('List is already empty.');
+      toast('De lijst is al leeg.');
       console.info('[Home] Clear list skipped: list already empty');
       return;
     }
@@ -674,7 +693,7 @@ export default function HomeScreen() {
     try {
       const { error } = await supabase.from('items').delete().eq('list_id', list.id);
       if (error) {
-        toast('Unable to clear the list.');
+        toast('Lijst legen is niet gelukt.');
         console.error('[Home] Supabase delete failed when clearing list', error, {
           listId: list.id,
         });
@@ -727,7 +746,7 @@ export default function HomeScreen() {
     return (
       <View style={styles.completedContainer}>
         <View style={styles.completedHeader}>
-          <Text style={styles.completedTitle}>Checked off</Text>
+          <Text style={styles.completedTitle}>Afgevinkt</Text>
           <Text style={styles.completedCount}>{completedItems.length}</Text>
         </View>
         <View style={styles.completedList}>
@@ -745,7 +764,7 @@ export default function HomeScreen() {
   }, [completedItems, handleDeleteItem, handleToggleItem, showCompleted]);
 
   const predictedIcon = itemName.trim() ? iconForItem(itemName) : '🛒';
-  const predictedLabel = itemName.trim() || 'Add something tasty';
+  const predictedLabel = itemName.trim() || 'Voeg iets lekkers toe';
 
   if (loadingContext || itemsLoading) {
     return (
@@ -753,7 +772,7 @@ export default function HomeScreen() {
         colors={[palette.beige, palette.sand]}
         style={[styles.flex, styles.center]}>
         <ActivityIndicator size="small" color={palette.coral} />
-        <Text style={styles.loadingText}>Warming up your pantry...</Text>
+        <Text style={styles.loadingText}>We warmen je voorraadkast op...</Text>
       </LinearGradient>
     );
   }
@@ -766,18 +785,18 @@ export default function HomeScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={[styles.flex, styles.center, styles.createContainer]}>
             <View style={styles.createCard}>
-              <Text style={styles.createTitle}>Welcome to Groceo ✨</Text>
+              <Text style={styles.createTitle}>Welkom bij Groceo ✨</Text>
               <Text style={styles.createSubtitle}>
-                Create a household so everyone can add and check items together.
+                Maak een huishouden aan zodat iedereen samen items kan toevoegen en afvinken.
               </Text>
               <TextField
-                label="Household name"
+                label="Naam van het huishouden"
                 value={householdName}
                 onChangeText={setHouseholdName}
-                placeholder="The Groceo crew"
+                placeholder="De Groceo-crew"
               />
               <Button
-                title="Create household"
+                title="Huishouden aanmaken"
                 onPress={handleCreateHousehold}
                 loading={creatingHousehold}
               />
@@ -806,11 +825,11 @@ export default function HomeScreen() {
                   <View style={styles.headerRow}>
                     <View>
                       <Text style={styles.appTitle}>Groceo ✨</Text>
-                      <Text style={styles.appSubtitle}>Shared lists that stay in sync.</Text>
+                      <Text style={styles.appSubtitle}>Gedeelde lijsten die altijd synchroon blijven.</Text>
                     </View>
                     <TouchableOpacity
                       style={styles.avatarBadge}
-                      onPress={() => toast('Household switcher coming soon!')}>
+                      onPress={() => toast('Binnenkort kun je van huishouden wisselen!')}>
                       <LinearGradient
                         colors={[palette.coral, palette.amber]}
                         style={styles.avatarGradient}>
@@ -829,7 +848,8 @@ export default function HomeScreen() {
                     <View style={styles.summaryBadge}>
                       <Feather name="shopping-bag" size={16} color={palette.clay} />
                       <Text style={styles.summaryBadgeText}>
-                        {activeItems.length} {activeItems.length === 1 ? 'item' : 'items'} to pick
+                        {activeItems.length}{' '}
+                        {activeItems.length === 1 ? 'product' : 'producten'} te halen
                       </Text>
                     </View>
                   </View>
@@ -844,7 +864,7 @@ export default function HomeScreen() {
                           ref={itemInputRef}
                           value={itemName}
                           onChangeText={setItemName}
-                          placeholder="Add an item or scan a product..."
+                          placeholder="Voeg een product toe of scan iets..."
                           placeholderTextColor="rgba(63,31,30,0.45)"
                           style={styles.input}
                           returnKeyType="done"
@@ -852,12 +872,12 @@ export default function HomeScreen() {
                         />
                         <TouchableOpacity
                           style={styles.cameraButton}
-                          onPress={() => toast('Scanning soon!')}>
+                          onPress={() => toast('Scannen volgt binnenkort!')}>
                           <Feather name="camera" size={18} color={palette.coral} />
                         </TouchableOpacity>
                       </View>
                       <View style={styles.quantityRow}>
-                        <Text style={styles.quantityLabel}>Quantity</Text>
+                        <Text style={styles.quantityLabel}>Aantal</Text>
                         <View style={styles.quantityStepper}>
                           <TouchableOpacity
                             style={styles.stepperButton}
@@ -878,7 +898,7 @@ export default function HomeScreen() {
                           {addingItem ? (
                             <ActivityIndicator size="small" color={palette.deepClay} />
                           ) : (
-                            <Text style={styles.addButtonText}>Add</Text>
+                            <Text style={styles.addButtonText}>Toevoegen</Text>
                           )}
                         </TouchableOpacity>
                       </View>
@@ -896,8 +916,8 @@ export default function HomeScreen() {
                           <Text style={styles.previewLabel}>{predictedLabel}</Text>
                           <Text style={styles.previewHint}>
                             {itemName.trim()
-                              ? 'Tap add or hit return to drop it in the list.'
-                              : 'Type an item or tap a quick suggestion.'}
+                              ? 'Tik op toevoegen of druk op enter om het in de lijst te zetten.'
+                              : 'Typ een product of kies een snelle suggestie.'}
                           </Text>
                         </View>
                       </Animated.View>
@@ -922,7 +942,7 @@ export default function HomeScreen() {
                     <View style={styles.errorBanner}>
                       <Feather name="alert-triangle" size={16} color="#402018" />
                       <Text style={styles.errorBannerText}>
-                        Having trouble syncing. Pull to refresh.
+                        Synchroniseren lukt niet. Trek omlaag om te verversen.
                       </Text>
                     </View>
                   ) : null}
@@ -941,10 +961,10 @@ export default function HomeScreen() {
                     />
                     <Text style={styles.completedToggleText}>
                       {completedItems.length === 0
-                        ? 'No completed items yet'
+                        ? 'Nog geen afgeronde items'
                         : showCompleted
-                        ? 'Hide completed'
-                        : `Show completed (${completedItems.length})`}
+                        ? 'Verberg afgerond'
+                        : `Toon afgerond (${completedItems.length})`}
                     </Text>
                   </TouchableOpacity>
                   {renderCompleted}
@@ -958,9 +978,9 @@ export default function HomeScreen() {
             <Animated.View entering={FadeInUp.duration(220)} style={styles.bottomBar}>
               <TouchableOpacity
                 style={styles.shareButton}
-                onPress={() => toast('List shared with your household!')}>
+                onPress={() => toast('Lijst gedeeld met je huishouden!')}>
                 <Feather name="users" size={18} color={palette.deepClay} />
-                <Text style={styles.shareText}>Share list</Text>
+                <Text style={styles.shareText}>Deel lijst</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -974,13 +994,13 @@ export default function HomeScreen() {
                 ) : (
                   <>
                     <Feather name="trash-2" size={16} color={palette.deepClay} />
-                    <Text style={styles.clearText}>Clear list</Text>
+                    <Text style={styles.clearText}>Lijst leegmaken</Text>
                   </>
                 )}
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.sortButton}
-                onPress={() => toast('Sort & filter coming soon!')}>
+                onPress={() => toast('Sorteren en filteren komt er binnenkort bij!')}>
                 <Feather name="sliders" size={18} color={palette.deepClay} />
               </TouchableOpacity>
             </Animated.View>
@@ -1013,7 +1033,7 @@ function GroceryListItem({ item, onToggle, onDelete }: GroceryListItemProps) {
       renderLeftActions={() => (
         <View style={styles.leftAction}>
           <Feather name="check-circle" size={18} color="#FFFFFF" />
-          <Text style={styles.leftActionText}>Bought</Text>
+          <Text style={styles.leftActionText}>Gekocht</Text>
         </View>
       )}
       renderRightActions={() => (
@@ -1045,7 +1065,7 @@ function GroceryListItem({ item, onToggle, onDelete }: GroceryListItemProps) {
             {item.name}
           </Text>
           <Text style={styles.itemMeta}>
-            {item.quantity > 1 ? `Qty ${item.quantity}` : 'Just one'}
+            {item.quantity > 1 ? `Aantal ${item.quantity}` : 'Slechts één'}
           </Text>
         </View>
         <View style={styles.itemTrailing}>
@@ -1074,9 +1094,9 @@ function CelebrationOverlay() {
         entering={FadeInDown.springify().damping(12)}
         style={styles.celebrationCard}>
         <Text style={styles.celebrationEmoji}>🧺</Text>
-        <Text style={styles.celebrationTitle}>List clear!</Text>
+        <Text style={styles.celebrationTitle}>Lijst leeg!</Text>
         <Text style={styles.celebrationSubtitle}>
-          Everything’s checked off — enjoy the calm kitchen.
+          Alles is afgevinkt — geniet van de rustige keuken.
         </Text>
       </Animated.View>
 

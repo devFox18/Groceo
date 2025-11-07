@@ -29,11 +29,11 @@ export function ItemRow({ item, onToggle, onDelete }: ItemRowProps) {
       </Pressable>
       <View style={styles.content}>
         <Text style={[styles.name, item.checked && styles.nameChecked]}>{item.name}</Text>
-        <Text style={styles.meta}>Qty {item.quantity}</Text>
+        <Text style={styles.meta}>Aantal {item.quantity}</Text>
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Delete ${item.name}`}
+        accessibilityLabel={`Verwijder ${item.name}`}
         onPress={() => onDelete(item)}
         style={styles.delete}>
         <Feather name="trash-2" size={18} color={colors.error} />

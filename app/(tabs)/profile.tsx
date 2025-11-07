@@ -40,7 +40,7 @@ export default function ProfileScreen() {
       .order('created_at', { ascending: true });
 
     if (error) {
-      toast('Unable to load households.');
+      toast('Huishoudens laden is niet gelukt.');
       setHouseholds([]);
       setLoading(false);
       return;
@@ -65,17 +65,17 @@ export default function ProfileScreen() {
 
   const handleSelectHousehold = (id: string) => {
     setActiveHouseholdId(id);
-    toast('Active household updated.');
+    toast('Actief huishouden bijgewerkt.');
   };
 
   const handleCreateHousehold = async () => {
     if (!session) return;
     if (!isSupabaseConfigured || !supabase) {
-      toast('Supabase is not configured. Please add your credentials.');
+      toast('Supabase is niet geconfigureerd. Voeg je gegevens toe.');
       return;
     }
     if (!newHouseholdName.trim()) {
-      toast('Household name is required.');
+      toast('Naam van het huishouden is verplicht.');
       return;
     }
 
@@ -99,7 +99,7 @@ export default function ProfileScreen() {
         householdName: trimmedName,
         hasData: Boolean(createdHousehold),
       });
-      toast('Failed to create household.');
+      toast('Huishouden kon niet worden aangemaakt.');
       setCreating(false);
       return;
     }
@@ -116,14 +116,14 @@ export default function ProfileScreen() {
         userId: session.user.id,
         householdId: createdHousehold.id,
       });
-      toast('Failed to join household.');
+      toast('Lid worden van het huishouden is niet gelukt.');
       setCreating(false);
       return;
     }
 
     const { error: listError } = await supabase.from('lists').insert({
       household_id: createdHousehold.id,
-      name: 'Main list',
+      name: 'Hoofdlijst',
     });
 
     if (listError) {
@@ -132,7 +132,7 @@ export default function ProfileScreen() {
         userId: session.user.id,
         householdId: createdHousehold.id,
       });
-      toast('Failed to create default list.');
+      toast('Standaardlijst aanmaken is niet gelukt.');
       setCreating(false);
       return;
     }
@@ -142,7 +142,7 @@ export default function ProfileScreen() {
     setActiveHouseholdId(createdHousehold.id);
     setNewHouseholdName('');
     setCreating(false);
-    toast('Household created successfully.');
+    toast('Huishouden is aangemaakt.');
   };
 
   const handleSignOut = async () => {
@@ -154,7 +154,7 @@ export default function ProfileScreen() {
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('[Auth] Logout failed', { userId: session?.user.id, error: error.message });
-      toast('Failed to sign out. Please try again.');
+      toast('Uitloggen is niet gelukt. Probeer het opnieuw.');
       return;
     }
     console.log('[Auth] Logout successful', { userId: session?.user.id });
@@ -163,7 +163,7 @@ export default function ProfileScreen() {
   if (!session) {
     return (
       <View style={[styles.flex, styles.center]}>
-        <Text style={styles.muted}>Sign in to manage your profile.</Text>
+        <Text style={styles.muted}>Log in om je profiel te beheren.</Text>
       </View>
     );
   }
@@ -172,7 +172,7 @@ export default function ProfileScreen() {
     return (
       <View style={[styles.flex, styles.center]}>
         <Text style={styles.muted}>
-          Supabase is not configured. Add credentials to enable profile features.
+          Supabase is niet geconfigureerd. Voeg gegevens toe om profielopties te gebruiken.
         </Text>
       </View>
     );
@@ -180,19 +180,19 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
-      <Text style={styles.heading}>Profile</Text>
+      <Text style={styles.heading}>Profiel</Text>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Account</Text>
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>E-mail</Text>
         <Text style={styles.value}>{session.user.email}</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Households</Text>
+        <Text style={styles.cardTitle}>Huishoudens</Text>
         {loading ? (
-          <Text style={styles.muted}>Loading households…</Text>
+          <Text style={styles.muted}>Huishoudens worden geladen…</Text>
         ) : households.length === 0 ? (
-          <Text style={styles.muted}>You are not part of any household yet.</Text>
+          <Text style={styles.muted}>Je maakt nog geen deel uit van een huishouden.</Text>
         ) : (
           <View style={styles.householdList}>
             {households.map((household) => {
@@ -206,7 +206,7 @@ export default function ProfileScreen() {
                     style={[styles.householdName, isActive && styles.householdNameActive]}>
                     {household.name}
                   </Text>
-                  {isActive ? <Text style={styles.activeTag}>Active</Text> : null}
+                  {isActive ? <Text style={styles.activeTag}>Actief</Text> : null}
                 </Pressable>
               );
             })}
@@ -214,13 +214,13 @@ export default function ProfileScreen() {
         )}
         <View style={styles.newHouseholdForm}>
           <TextField
-            label="Create household"
+            label="Huishouden aanmaken"
             value={newHouseholdName}
             onChangeText={setNewHouseholdName}
-            placeholder="E.g. Downtown loft"
+            placeholder="Bijv. Appartement centrum"
           />
           <Button
-            title="Create"
+            title="Aanmaken"
             onPress={handleCreateHousehold}
             loading={creating}
             disabled={creating}
@@ -228,7 +228,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <Button title="Log out" variant="ghost" onPress={handleSignOut} />
+      <Button title="Uitloggen" variant="ghost" onPress={handleSignOut} />
     </ScrollView>
   );
 }

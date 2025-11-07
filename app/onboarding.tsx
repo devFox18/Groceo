@@ -60,18 +60,18 @@ const milestoneMeta: Record<
   { label: string; description: string; icon: IconName }
 > = {
   crew: {
-    label: 'Your crew',
-    description: 'Let us know who shops with you so we can welcome them in.',
+    label: 'Jouw team',
+    description: 'Vertel wie er mee boodschappen doet, dan heten we ze meteen welkom.',
     icon: 'account-group-outline',
   },
   rhythm: {
-    label: 'Your rhythm',
-    description: 'Share your grocery tempo so reminders land right on time.',
+    label: 'Jouw ritme',
+    description: 'Deel je boodschappen-tempo zodat herinneringen precies op tijd komen.',
     icon: 'clock-outline',
   },
   setup: {
-    label: 'Your setup',
-    description: "See the little boosts we'll prep based on what matters most.",
+    label: 'Jouw start',
+    description: 'We laten zien welke extra hulpjes we klaarzetten voor wat jij belangrijk vindt.',
     icon: 'rocket-launch-outline',
   },
 };
@@ -101,29 +101,54 @@ export default function OnboardingScreen() {
         milestone: 'crew',
         illustration: 'plan',
         type: 'intro',
-        title: "Let's make grocery time easy",
-        subtitle: "A couple of friendly questions helps Groceo feel like it was made for your household.",
-        primaryLabel: 'Start 1-minute setup',
+        title: 'Laten we boodschappen eenvoudig maken',
+        subtitle: 'Een paar korte vragen zorgen ervoor dat Groceo perfect bij jouw huishouden past.',
+        primaryLabel: 'Start de setup van 1 minuut',
         secondaryAction: 'login',
-        secondaryLabel: 'Log in instead',
+        secondaryLabel: 'Toch inloggen',
       },
       {
         key: 'household',
         milestone: 'crew',
         illustration: 'shop',
         type: 'quiz',
-        title: 'Who usually shops with you?',
-        subtitle: 'Invite the people who add items, cook together, or help keep the fridge stocked.',
+        title: 'Wie doet meestal boodschappen met jou?',
+        subtitle: 'Nodig de mensen uit die items toevoegen, samen koken of de koelkast gevuld houden.',
         options: [
-          { id: 'partner', label: 'Partner or spouse', description: 'We tackle the list side by side', icon: 'account-heart-outline' },
-          { id: 'roommates', label: 'Roommates', description: 'We split pantry wins and chores', icon: 'account-multiple-outline' },
-          { id: 'kids', label: 'Kids or teens', description: "They add what they're craving", icon: 'account-child-outline' },
-          { id: 'caregiver', label: 'Grandparent or caregiver', description: 'They help keep staples topped up', icon: 'hand-heart' },
-          { id: 'just-me', label: 'Just me for now', description: "I'm the one steering grocery duty", icon: 'account-circle-outline' },
+          {
+            id: 'partner',
+            label: 'Partner of echtgenoot',
+            description: 'We werken samen aan dezelfde lijst',
+            icon: 'account-heart-outline',
+          },
+          {
+            id: 'roommates',
+            label: 'Huisgenoten',
+            description: 'We delen pantry-succesjes en klussen',
+            icon: 'account-multiple-outline',
+          },
+          {
+            id: 'kids',
+            label: 'Kinderen of tieners',
+            description: 'Zij voegen toe waar ze trek in hebben',
+            icon: 'account-child-outline',
+          },
+          {
+            id: 'caregiver',
+            label: 'Grootouder of verzorger',
+            description: 'Ze helpen de basisvoorraad aanvullen',
+            icon: 'hand-heart',
+          },
+          {
+            id: 'just-me',
+            label: 'Voor nu alleen ik',
+            description: 'Ik neem de boodschappenmissie op me',
+            icon: 'account-circle-outline',
+          },
         ],
         multi: true,
-        primaryLabel: 'Save & continue',
-        secondaryLabel: "I'll invite them later",
+        primaryLabel: 'Opslaan & verder',
+        secondaryLabel: 'Ik nodig ze later uit',
         secondaryAction: 'skip',
       },
       {
@@ -131,16 +156,36 @@ export default function OnboardingScreen() {
         milestone: 'rhythm',
         illustration: 'remember',
         type: 'quiz',
-        title: 'How do grocery runs usually go?',
-        subtitle: "We'll nudge you before a fridge scramble and keep reminders at the right tempo.",
+        title: 'Hoe verlopen jullie boodschappenrondes meestal?',
+        subtitle: 'We geven je een seintje vóór het koelkaststress wordt en houden het juiste tempo aan.',
         options: [
-          { id: 'weekly', label: 'Weekly rhythm', description: 'We head out once or twice each week', icon: 'calendar-week' },
-          { id: 'biweekly', label: 'Every other week', description: 'Bigger runs every couple of weeks', icon: 'calendar-range' },
-          { id: 'monthly', label: 'Monthly stock-up', description: 'Bulk trips to keep the pantry happy', icon: 'calendar-month' },
-          { id: 'as-needed', label: 'Whenever the fridge looks empty', description: 'We dash out when the list gets long', icon: 'calendar-question' },
+          {
+            id: 'weekly',
+            label: 'Wekelijks ritme',
+            description: 'We gaan één of twee keer per week op pad',
+            icon: 'calendar-week',
+          },
+          {
+            id: 'biweekly',
+            label: 'Om de week',
+            description: 'Grotere rondes om de paar weken',
+            icon: 'calendar-range',
+          },
+          {
+            id: 'monthly',
+            label: 'Maandelijkse voorraadronde',
+            description: 'Bulkbezoeken om de voorraad blij te houden',
+            icon: 'calendar-month',
+          },
+          {
+            id: 'as-needed',
+            label: 'Wanneer de koelkast leeg oogt',
+            description: 'We sprinten zodra de lijst lang wordt',
+            icon: 'calendar-question',
+          },
         ],
-        primaryLabel: 'Save & continue',
-        secondaryLabel: "We'll set this later",
+        primaryLabel: 'Opslaan & verder',
+        secondaryLabel: 'Dit stel ik later in',
         secondaryAction: 'skip',
       },
       {
@@ -148,16 +193,36 @@ export default function OnboardingScreen() {
         milestone: 'setup',
         illustration: 'start',
         type: 'quiz',
-        title: 'What would make grocery time feel easier?',
-        subtitle: "Pick the magic you'd love Groceo to bring your household.",
+        title: 'Wat zou boodschappen doen makkelijker maken?',
+        subtitle: 'Kies welke magie Groceo naar jouw huishouden moet brengen.',
         options: [
-          { id: 'never-miss', label: 'Never running out', description: 'Gentle pantry reminders before favourites disappear', icon: 'bell-outline' },
-          { id: 'faster-trips', label: 'Faster grocery runs', description: 'Smart store order and real-time checklists', icon: 'clock-outline' },
-          { id: 'shared-planning', label: 'Less list juggling', description: 'Meal ideas and assignments all in one cozy hub', icon: 'clipboard-text-outline' },
-          { id: 'budget', label: 'Sticking to a budget', description: 'Track spending and catch the weekly wins', icon: 'currency-usd' },
+          {
+            id: 'never-miss',
+            label: 'Nooit misgrijpen',
+            description: 'Vriendelijke pantry-herinneringen vóór favorieten op zijn',
+            icon: 'bell-outline',
+          },
+          {
+            id: 'faster-trips',
+            label: 'Snellere supermarktbezoeken',
+            description: 'Slimme looproutes en checklists in real time',
+            icon: 'clock-outline',
+          },
+          {
+            id: 'shared-planning',
+            label: 'Minder lijstjes-gedoe',
+            description: 'Maaltijdideeën en taken in één knusse hub',
+            icon: 'clipboard-text-outline',
+          },
+          {
+            id: 'budget',
+            label: 'Binnen budget blijven',
+            description: 'Uitgaven volgen en de weekwins binnenhalen',
+            icon: 'currency-usd',
+          },
         ],
-        primaryLabel: 'Show my Groceo plan',
-        secondaryLabel: "We'll choose later",
+        primaryLabel: 'Laat mijn Groceo-plan zien',
+        secondaryLabel: 'We kiezen dit later',
         secondaryAction: 'skip',
       },
       {
@@ -165,10 +230,10 @@ export default function OnboardingScreen() {
         milestone: 'setup',
         illustration: 'plan',
         type: 'summary',
-        title: 'Your Groceo home is ready',
-        subtitle: "We've lined up a grocery groove that fits the people you care for.",
-        primaryLabel: 'Create your household',
-        secondaryLabel: 'Review answers',
+        title: 'Je Groceo-thuis is klaar',
+        subtitle: 'We hebben een boodschappenritme klaarstaan dat past bij de mensen voor wie je zorgt.',
+        primaryLabel: 'Maak je huishouden aan',
+        secondaryLabel: 'Antwoorden bekijken',
         secondaryAction: 'back',
       },
     ],
@@ -215,40 +280,44 @@ export default function OnboardingScreen() {
       const isSolo = householdAnswer.length === 1 && householdAnswer[0] === 'just-me';
       highlights.push({
         icon: isSolo ? 'account-circle-outline' : 'account-group',
-        label: isSolo ? 'Groceo will keep your solo list humming' : 'Shared list ready for your whole crew',
+        label: isSolo
+          ? 'Groceo houdt jouw persoonlijke lijst soepel draaiende'
+          : 'Gedeelde lijst klaar voor je hele team',
       });
     } else {
       highlights.push({
         icon: 'clipboard-check-outline',
-        label: "We'll suggest staples to kick things off",
+        label: 'We stellen een paar basisproducten voor om te starten',
       });
     }
 
     if (typeof cadenceAnswer === 'string' && cadenceAnswer.length > 0) {
       const cadenceTextMap: Record<string, string> = {
-        weekly: 'Weekly gentle reminders before the fridge runs dry',
-        biweekly: 'Every-other-week nudges tuned to your pace',
-        monthly: 'Monthly stock-up planning so shelves stay happy',
-        'as-needed': 'On-demand alerts when favourites run low',
+        weekly: 'Wekelijkse zachte reminders vóór de koelkast leeg raakt',
+        biweekly: 'Seintjes om de week, precies in jouw tempo',
+        monthly: 'Maandelijkse voorraadplanning zodat de planken blij blijven',
+        'as-needed': 'Meteen een melding zodra favorieten bijna op zijn',
       };
       highlights.push({
         icon: 'calendar-check',
-        label: cadenceTextMap[cadenceAnswer] ?? 'Personalised shopping cadence',
+        label: cadenceTextMap[cadenceAnswer] ?? 'Persoonlijk boodschappenritme',
       });
     }
 
     if (typeof focusAnswer === 'string' && focusAnswer.length > 0) {
       const focusTextMap: Record<string, { icon: IconName; label: string }> = {
-        'never-miss': { icon: 'bell-ring-outline', label: 'Pantry guard keeps favourites covered' },
-        'faster-trips': { icon: 'map-marker-radius', label: 'Store-smart lists for quicker trips' },
-        'shared-planning': { icon: 'clipboard-plus-outline', label: 'Shared planning tools on standby' },
-        budget: { icon: 'chart-areaspline', label: 'Budget-friendly insights front and centre' },
+        'never-miss': { icon: 'bell-ring-outline', label: 'Pantry-bewaker houdt favorieten op voorraad' },
+        'faster-trips': { icon: 'map-marker-radius', label: 'Winkel-slimme lijsten voor snellere trips' },
+        'shared-planning': { icon: 'clipboard-plus-outline', label: 'Gezamenlijke planning binnen handbereik' },
+        budget: { icon: 'chart-areaspline', label: 'Budgetvriendelijke inzichten vooraan' },
       };
-      highlights.push(focusTextMap[focusAnswer] ?? { icon: 'star-outline', label: 'Favourite features prioritised' });
+      highlights.push(
+        focusTextMap[focusAnswer] ?? { icon: 'star-outline', label: 'Favoriete features krijgen prioriteit' },
+      );
     } else {
       highlights.push({
         icon: 'lightbulb-on-outline',
-        label: 'Helpful tips will pop up as you explore',
+        label: 'Handige tips verschijnen terwijl je verkent',
       });
     }
 
@@ -497,8 +566,8 @@ function resolveHeroAccents(step: OnboardingStep) {
   if (step.key === 'intro') {
     return (
       <>
-        <HeroAccentPill icon="clock-check-outline" label="Quick family setup" />
-        <HeroAccentPill icon="star-circle-outline" label="Tailored to your crew" />
+        <HeroAccentPill icon="clock-check-outline" label="Snelle gezinssetup" />
+        <HeroAccentPill icon="star-circle-outline" label="Op maat voor jouw huishouden" />
       </>
     );
   }

@@ -24,8 +24,8 @@ export const illustrationConfig: Record<OnboardingIllustration, IllustrationConf
     gradient: ['#FEEBC8', '#FBD38D'],
     icon: 'clipboard-text-outline',
     accents: [
-      { icon: 'account-group', label: 'Shared family plan' },
-      { icon: 'account-plus-outline', label: 'Invite everyone' },
+      { icon: 'account-group', label: 'Gedeeld familieplan' },
+      { icon: 'account-plus-outline', label: 'Nodig iedereen uit' },
     ],
     image: require('../../assets/images/onboarding/plan.png'),
   },
@@ -33,24 +33,24 @@ export const illustrationConfig: Record<OnboardingIllustration, IllustrationConf
     gradient: ['#C6F6D5', '#9AE6B4'],
     icon: 'cart-outline',
     accents: [
-      { icon: 'clock-outline', label: 'Stay in sync' },
-      { icon: 'map-marker-radius', label: 'One smooth trip' },
+      { icon: 'clock-outline', label: 'Blijf moeiteloos in sync' },
+      { icon: 'map-marker-radius', label: 'Eén vlotte ronde' },
     ],
   },
   remember: {
     gradient: ['#E9D8FD', '#D6BCFA'],
     icon: 'bell-outline',
     accents: [
-      { icon: 'package-variant', label: 'Restock reminders' },
-      { icon: 'lightbulb-on-outline', label: 'Never miss favourites' },
+      { icon: 'package-variant', label: 'Herbevoorradingsherinneringen' },
+      { icon: 'lightbulb-on-outline', label: 'Mis favoriete producten nooit' },
     ],
   },
   start: {
     gradient: ['#BEE3F8', '#90CDF4'],
     icon: 'rocket-launch-outline',
     accents: [
-      { icon: 'account-heart-outline', label: 'Invite your crew' },
-      { icon: 'fire', label: "Let's get cooking" },
+      { icon: 'account-heart-outline', label: 'Nodig je team uit' },
+      { icon: 'fire', label: 'Aan de slag met koken' },
     ],
   },
 };
@@ -191,7 +191,7 @@ export function OnboardingSlide({
 
       <View style={styles.actions}>
         {!isLast ? (
-          <Text style={styles.secondaryHint}>Swipe to peek at what's ahead</Text>
+          <Text style={styles.secondaryHint}>Swipe om alvast vooruit te kijken</Text>
         ) : (
           <>
             {primaryLabel && onPrimary ? (
@@ -200,7 +200,7 @@ export function OnboardingSlide({
             {secondaryLabel && onSecondary ? (
               <Button title={secondaryLabel} onPress={onSecondary} variant="ghost" />
             ) : null}
-            <Text style={styles.secondaryHint}>You can tweak your household anytime</Text>
+            <Text style={styles.secondaryHint}>Je kunt je huishouden altijd aanpassen</Text>
           </>
         )}
       </View>
