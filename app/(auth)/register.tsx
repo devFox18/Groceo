@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { Feather } from '@expo/vector-icons';
 
@@ -13,6 +13,13 @@ import { toast } from '@/utils/toast';
 
 const emailPattern = /\S+@\S+\.\S+/;
 
+type RoleOptionProps = {
+  title: string;
+  description: string;
+  active: boolean;
+  onPress: () => void;
+};
+
 export default function RegisterScreen() {
   const router = useRouter();
   const passwordRef = useRef<TextInput>(null);
@@ -23,10 +30,15 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [role, setRole] = useState<'owner' | 'member'>('owner');
+  const [householdName, setHouseholdName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
     confirmPassword?: string;
+    householdName?: string;
+    inviteCode?: string;
   }>({});
 
   const handleSubmit = async () => {
@@ -49,6 +61,12 @@ export default function RegisterScreen() {
     }
     if (password !== confirmPassword) {
       nextErrors.confirmPassword = 'Wachtwoorden komen niet overeen.';
+    }
+    if (role === 'owner' && householdName.trim().length < 3) {
+      nextErrors.householdName = 'Geef je huishouden een naam (minimaal 3 tekens).';
+    }
+    if (role === 'member' && inviteCode.trim().length < 4) {
+      nextErrors.inviteCode = 'Vul de gezin-code of uitnodiging in.';
     }
 
     setErrors(nextErrors);
@@ -147,12 +165,110 @@ export default function RegisterScreen() {
           </TouchableOpacity>
         }
       />
+      <View style={styles.roleGrid}>
+        <RoleOption
+          title="Ik start een nieuw huishouden"
+          description="Ik beheer Groceo en nodig mijn gezin later uit."
+          active={role === 'owner'}
+          onPress={() => setRole('owner')}
+        />
+        <RoleOption
+          title="Ik sluit me aan bij een gezin"
+          description="Ik heb al een uitnodiging of code om mee te doen."
+          active={role === 'member'}
+          onPress={() => setRole('member')}
+        />
+      </View>
+      {role === 'owner' ? (
+        <TextField
+          label="Naam van je huishouden"
+          value={householdName}
+          onChangeText={setHouseholdName}
+          placeholder="Bijv. Familie Janssen"
+          error={errors.householdName}
+        />
+      ) : (
+        <TextField
+          label="Gezin-code of uitnodiging"
+          value={inviteCode}
+          onChangeText={setInviteCode}
+          placeholder="Bijv. GROCEO-TEAM"
+          error={errors.inviteCode}
+        />
+      )}
       <Button title="Registreren" onPress={handleSubmit} loading={loading} />
     </AuthScreen>
   );
 }
 
+function RoleOption({ title, description, active, onPress }: RoleOptionProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.roleOption,
+        active && styles.roleOptionActive,
+        pressed && styles.roleOptionPressed,
+      ]}>
+      <View style={styles.roleOptionDot} />
+      <View style={styles.roleOptionCopy}>
+        <Text style={[styles.roleOptionTitle, active && styles.roleOptionTitleActive]}>{title}</Text>
+        <Text style={styles.roleOptionDescription}>{description}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  roleGrid: {
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  roleOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    padding: 16,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+  },
+  roleOptionActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(61,220,132,0.12)',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
+  roleOptionPressed: {
+    opacity: 0.9,
+  },
+  roleOptionDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+  },
+  roleOptionCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  roleOptionTitle: {
+    ...textStyles.body,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  roleOptionTitleActive: {
+    color: colors.primaryDark,
+  },
+  roleOptionDescription: {
+    ...textStyles.caption,
+    color: colors.textSecondary,
+  },
   footerCta: {
     flexDirection: 'row',
     alignItems: 'center',
