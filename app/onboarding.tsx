@@ -5,6 +5,7 @@ import type { ComponentProps } from 'react';
 import { useMemo, useState } from 'react';
 import {
   Pressable,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -12,7 +13,7 @@ import {
 } from 'react-native';
 
 import { Button } from '@/components/Button';
-import { HeroAccentPill, OnboardingHero, type OnboardingIllustration } from '@/components/OnboardingSlide';
+import { type OnboardingIllustration } from '@/components/OnboardingSlide';
 import { colors, radius, spacing, textStyles } from '@/lib/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -364,6 +365,7 @@ export default function OnboardingScreen() {
   });
 
   const activeMilestone = milestoneProgress.find((milestone) => milestone.isActive) ?? milestoneProgress[0];
+  const totalSteps = steps.length;
 
   const handleSelectOption = (optionId: string, step: QuizStep) => {
     setAnswers((prev) => {
@@ -433,146 +435,153 @@ export default function OnboardingScreen() {
   return (
     <LinearGradient colors={['#F6F9FF', '#FFFFFF']} style={styles.screen}>
       <StatusBar barStyle="dark-content" />
-      <View style={styles.header} />
-      <View style={styles.heroSection}>
-        <OnboardingHero
-          illustration={currentStep.illustration}
-          accentContent={resolveHeroAccents(currentStep)}
-        />
-      </View>
-
       <View style={styles.bottomCard}>
-        <View style={styles.progressContainer}>
-          <View style={styles.progressHeader}>
-            <View style={styles.progressTrack}>
-              {milestoneProgress.map((milestone, index) => (
-                <Pressable
-                  key={milestone.key}
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: !milestone.isCompleted }}
-                  disabled={!milestone.isCompleted}
-                  onPress={() => handleJumpTo(milestone.startIndex)}
-                  style={[
-                    styles.progressSegment,
-                    index !== milestoneProgress.length - 1 && styles.progressSegmentSpacing,
-                  ]}>
-                  <View
+        <View style={styles.cardContent}>
+          <LinearGradient
+            colors={['rgba(79,70,229,0.12)', 'rgba(14,165,233,0.08)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.stageHero}>
+            <View style={styles.stageIcon}>
+              <MaterialCommunityIcons
+                name={activeMilestone?.icon ?? 'star-outline'}
+                size={18}
+                color={colors.surface}
+              />
+            </View>
+            <View style={styles.stageCopy}>
+              <Text style={styles.stageLabel}>{activeMilestone?.label ?? 'Jouw start'}</Text>
+              <Text style={styles.stageDescription}>
+                {activeMilestone?.description ??
+                  'Beantwoord een paar korte vragen zodat Groceo zich aanpast aan jouw huishouden.'}
+              </Text>
+            </View>
+            <View style={styles.stageCounter}>
+              <Text style={styles.stageCounterValue}>
+                {String(Math.min(activeIndex + 1, totalSteps)).padStart(2, '0')}
+              </Text>
+              <Text style={styles.stageCounterHint}>/{totalSteps}</Text>
+              <Text style={styles.stageCounterLabel}>stappen</Text>
+            </View>
+          </LinearGradient>
+
+          <View style={styles.progressContainer}>
+            <View style={styles.progressHeader}>
+              <View style={styles.progressTrack}>
+                {milestoneProgress.map((milestone, index) => (
+                  <Pressable
+                    key={milestone.key}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: !milestone.isCompleted }}
+                    disabled={!milestone.isCompleted}
+                    onPress={() => handleJumpTo(milestone.startIndex)}
                     style={[
-                      styles.progressSegmentFill,
-                      {
-                        width: `${milestone.progressFraction * 100}%`,
-                        opacity: milestone.isCompleted ? 1 : 0.95,
-                      },
-                    ]}
-                  />
-                </Pressable>
-              ))}
+                      styles.progressSegment,
+                      index !== milestoneProgress.length - 1 && styles.progressSegmentSpacing,
+                    ]}>
+                    <View
+                      style={[
+                        styles.progressSegmentFill,
+                        {
+                          width: `${milestone.progressFraction * 100}%`,
+                          opacity: milestone.isCompleted ? 1 : 0.95,
+                        },
+                      ]}
+                    />
+                  </Pressable>
+                ))}
+              </View>
             </View>
           </View>
-          <View style={styles.milestoneRow}>
-            {milestoneProgress.map((milestone) => (
-              <View key={milestone.key} style={styles.milestoneItem}>
-                <View
-                  style={[
-                    styles.milestoneStatus,
-                    milestone.isCompleted && styles.milestoneStatusCompleted,
-                    milestone.isActive && styles.milestoneStatusActive,
-                  ]}>
-                  <MaterialCommunityIcons
-                    name={milestone.isCompleted ? 'check' : milestone.icon}
-                    size={14}
-                    color={milestone.isCompleted ? colors.surface : colors.primary}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.milestoneLabel,
-                    milestone.isActive && styles.milestoneLabelActive,
-                  ]}>
-                  {milestone.label}
-                </Text>
-                <View style={styles.milestoneDotRow}>
-                  {Array.from({ length: milestone.totalCount }).map((_, dotIndex) => {
-                    const isFilled = dotIndex < milestone.completedCount;
-                    return <View key={dotIndex} style={[styles.milestoneDot, isFilled && styles.milestoneDotFilled]} />;
-                  })}
-                </View>
-              </View>
-            ))}
-          </View>
-          {activeMilestone?.description ? (
-            <Text style={styles.milestoneDescription}>{activeMilestone.description}</Text>
-          ) : null}
         </View>
 
-        <View style={styles.copy}>
-          <Text style={styles.title}>{currentStep.title}</Text>
-          <Text style={styles.subtitle}>{currentStep.subtitle}</Text>
-        </View>
-
-        {currentStep.type === 'quiz' ? (
-          <View style={styles.optionList}>
-            {currentStep.options.map((option) => {
-              const answerForStep = answers[currentStep.key];
-              const selected = Array.isArray(answerForStep)
-                ? answerForStep.includes(option.id)
-                : answerForStep === option.id;
-              return (
-                <OptionCard
-                  key={option.id}
-                  option={option}
-                  multi={!!currentStep.multi}
-                  selected={selected}
-                  onPress={() => handleSelectOption(option.id, currentStep)}
+        <View style={styles.milestoneRow}>
+          {milestoneProgress.map((milestone) => (
+            <View key={milestone.key} style={styles.milestoneItem}>
+              <View
+                style={[
+                  styles.milestoneStatus,
+                  milestone.isCompleted && styles.milestoneStatusCompleted,
+                  milestone.isActive && styles.milestoneStatusActive,
+                ]}>
+                <MaterialCommunityIcons
+                  name={milestone.isCompleted ? 'check' : milestone.icon}
+                  size={14}
+                  color={milestone.isCompleted ? colors.surface : colors.primary}
                 />
-              );
-            })}
-          </View>
-        ) : null}
-
-        {currentStep.type === 'summary' ? (
-          <View style={styles.summaryList}>
-            {summaryHighlights.map((item) => (
-              <View key={item.label} style={styles.summaryItem}>
-                <View style={styles.summaryIconBadge}>
-                  <MaterialCommunityIcons name={item.icon} size={18} color={colors.primary} />
-                </View>
-                <Text style={styles.summaryText}>{item.label}</Text>
               </View>
-            ))}
+              <Text
+                style={[
+                  styles.milestoneLabel,
+                  milestone.isActive && styles.milestoneLabelActive,
+                ]}>
+                {milestone.label}
+              </Text>
+              <View style={styles.milestoneDotRow}>
+                {Array.from({ length: milestone.totalCount }).map((_, dotIndex) => {
+                  const isFilled = dotIndex < milestone.completedCount;
+                  return (
+                    <View key={dotIndex} style={[styles.milestoneDot, isFilled && styles.milestoneDotFilled]} />
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <ScrollView
+          style={styles.contentScroll}
+          contentContainerStyle={styles.contentScrollInner}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.copy}>
+            <Text style={styles.title}>{currentStep.title}</Text>
+            <Text style={styles.subtitle}>{currentStep.subtitle}</Text>
           </View>
-        ) : null}
+
+          {currentStep.type === 'quiz' ? (
+            <View style={styles.optionList}>
+              {currentStep.options.map((option) => {
+                const answerForStep = answers[currentStep.key];
+                const selected = Array.isArray(answerForStep)
+                  ? answerForStep.includes(option.id)
+                  : answerForStep === option.id;
+                return (
+                  <OptionCard
+                    key={option.id}
+                    option={option}
+                    multi={!!currentStep.multi}
+                    selected={selected}
+                    onPress={() => handleSelectOption(option.id, currentStep)}
+                  />
+                );
+              })}
+            </View>
+          ) : null}
+
+          {currentStep.type === 'summary' ? (
+            <View style={styles.summaryList}>
+              {summaryHighlights.map((item) => (
+                <View key={item.label} style={styles.summaryItem}>
+                  <View style={styles.summaryIconBadge}>
+                    <MaterialCommunityIcons name={item.icon} size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.summaryText}>{item.label}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </ScrollView>
 
         <View style={styles.ctaBar}>
           <Button title={currentStep.primaryLabel} onPress={handlePrimary} disabled={primaryDisabled} />
           {currentStep.secondaryLabel ? (
-            <Button
-              title={currentStep.secondaryLabel}
-              onPress={handleSecondary}
-              variant="ghost"
-            />
+            <Button title={currentStep.secondaryLabel} onPress={handleSecondary} variant="ghost" />
           ) : null}
         </View>
       </View>
     </LinearGradient>
   );
-}
-
-function resolveHeroAccents(step: OnboardingStep) {
-  if (step.type === 'quiz') {
-    return null;
-  }
-
-  if (step.key === 'intro') {
-    return (
-      <>
-        <HeroAccentPill icon="clock-check-outline" label="Snelle gezinssetup" />
-        <HeroAccentPill icon="star-circle-outline" label="Op maat voor jouw huishouden" />
-      </>
-    );
-  }
-
-  return undefined;
 }
 
 type OptionCardProps = {
@@ -627,33 +636,86 @@ function OptionCard({ option, selected, multi, onPress }: OptionCardProps) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.xl,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    zIndex: 1,
-  },
-  heroSection: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
   bottomCard: {
+    flex: 1,
     backgroundColor: 'rgba(255,255,255,0.96)',
     marginHorizontal: spacing.lg,
     borderRadius: radius.lg * 1.1,
     padding: spacing.lg,
-    gap: spacing.md,
+    gap: spacing.lg,
     shadowColor: '#0F172A',
     shadowOpacity: 0.12,
     shadowRadius: 30,
     shadowOffset: { width: 0, height: 20 },
     elevation: 12,
+  },
+  cardContent: {
+    gap: spacing.md,
+  },
+  stageHero: {
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  stageIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4C1D95',
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  stageCopy: {
+    flex: 1,
+    gap: spacing.xs * 0.5,
+  },
+  stageLabel: {
+    ...textStyles.subtitle,
+    color: colors.primaryDark,
+    fontSize: 18,
+  },
+  stageDescription: {
+    ...textStyles.caption,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  stageCounter: {
+    alignItems: 'flex-end',
+    gap: spacing.xs * 0.4,
+  },
+  stageCounterValue: {
+    ...textStyles.title,
+    fontSize: 28,
+    lineHeight: 30,
+    color: colors.primaryDark,
+  },
+  stageCounterHint: {
+    ...textStyles.body,
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  stageCounterLabel: {
+    ...textStyles.caption,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    fontSize: 11,
+  },
+  contentScroll: {
+    flex: 1,
+  },
+  contentScrollInner: {
+    gap: spacing.md,
+    paddingBottom: spacing.xl,
   },
   progressContainer: {
     gap: spacing.sm,
@@ -729,10 +791,6 @@ const styles = StyleSheet.create({
   },
   milestoneDotFilled: {
     backgroundColor: colors.primary,
-  },
-  milestoneDescription: {
-    ...textStyles.caption,
-    color: colors.textSecondary,
   },
   copy: {
     gap: spacing.xs,
@@ -824,5 +882,8 @@ const styles = StyleSheet.create({
   },
   ctaBar: {
     gap: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(148,163,184,0.25)',
+    paddingTop: spacing.md,
   },
 });
