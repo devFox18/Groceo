@@ -10,6 +10,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
+
 import { colors, radius, spacing, textStyles } from '@/lib/theme';
 
 type AuthScreenProps = {
@@ -30,45 +33,60 @@ export function AuthScreen({
   onPressLearn,
 }: AuthScreenProps) {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.hero}>
-            <View style={styles.brandBadge}>
-              <Text style={styles.brandInitial}>G</Text>
-            </View>
-            <Text style={styles.heroTitle}>Groceo</Text>
-            <Text style={styles.heroSubtitle}>
-              Smart groceries for every household.
-            </Text>
+    <LinearGradient
+      colors={['#10291D', colors.primaryDark, colors.primary]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradient}>
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.flex}>
+          <ScrollView
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled">
             {learnLabel && onPressLearn ? (
-              <TouchableOpacity style={styles.learnButton} onPress={onPressLearn}>
-                <Text style={styles.learnButtonText}>{learnLabel}</Text>
+              <TouchableOpacity
+                style={styles.learnLink}
+                onPress={onPressLearn}
+                accessibilityRole="link">
+                <Text style={styles.learnLinkText}>{learnLabel}</Text>
               </TouchableOpacity>
             ) : null}
-          </View>
 
-          <View style={styles.card}>
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.subtitle}>{subtitle}</Text>
-            <View style={styles.form}>{children}</View>
-          </View>
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Image
+                  source={LOGO_FULL}
+                  style={styles.cardLogo}
+                  contentFit="contain"
+                  accessibilityLabel="Groceo"
+                />
+                <View style={styles.cardTitleGroup}>
+                  <Text style={styles.title}>{title}</Text>
+                  <Text style={styles.subtitle}>{subtitle}</Text>
+                </View>
+              </View>
+              <View style={styles.form}>{children}</View>
+            </View>
 
-          {footer ? <View style={styles.footer}>{footer}</View> : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            {footer ? <View style={styles.footer}>{footer}</View> : null}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
+const LOGO_FULL = require('../../assets/images/logogroceo.png');
+
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   flex: {
     flex: 1,
@@ -76,49 +94,23 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xl * 2,
+    paddingVertical: spacing.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: spacing.lg,
   },
-  hero: {
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  brandBadge: {
-    backgroundColor: colors.primary,
-    width: 64,
-    height: 64,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandInitial: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.surface,
-  },
-  heroTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  heroSubtitle: {
-    ...textStyles.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  learnButton: {
-    marginTop: spacing.xs,
+  learnLink: {
+    alignSelf: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm,
     borderRadius: radius.pill,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
   },
-  learnButtonText: {
-    ...textStyles.caption,
-    color: colors.primaryDark,
+  learnLinkText: {
+    ...textStyles.body,
+    color: colors.surface,
     fontWeight: '600',
   },
   card: {
@@ -126,11 +118,27 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.xl,
     gap: spacing.md,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'stretch',
     shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 12 },
-    shadowRadius: 24,
-    elevation: 10,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 20 },
+    shadowRadius: 32,
+    elevation: 16,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  cardLogo: {
+    width: 56,
+    height: 56,
+  },
+  cardTitleGroup: {
+    flex: 1,
+    gap: spacing.xs / 2,
   },
   title: {
     ...textStyles.title,
@@ -147,5 +155,8 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center',
     gap: spacing.sm,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'stretch',
   },
 });

@@ -1,28 +1,39 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  FadeOut,
+  FadeOutUp,
+  Layout,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { Swipeable } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
 
 import { Button } from '@/components/Button';
-import { EmptyState } from '@/components/EmptyState';
-import { GroceryItem, ItemRow } from '@/components/ItemRow';
-import {
-  HeroAccentPill,
-  OnboardingHero,
-  illustrationConfig,
-  type OnboardingIllustration,
-} from '@/components/OnboardingSlide';
 import { TextField } from '@/components/TextField';
 import { useRealtimeList } from '@/hooks/useRealtimeList';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -41,12 +52,72 @@ type List = {
   name: string;
 };
 
-const HOME_ILLUSTRATION: OnboardingIllustration = 'plan';
-const CREATE_ILLUSTRATION: OnboardingIllustration = 'start';
-const HOME_GRADIENT = illustrationConfig[HOME_ILLUSTRATION].gradient;
-const CREATE_GRADIENT = illustrationConfig[CREATE_ILLUSTRATION].gradient;
-const QUICK_ADD_OPTIONS = ['Milk', 'Eggs', 'Bread', 'Bananas', 'Coffee'] as const;
-const QUANTITY_OPTIONS = [1, 2, 3, 5] as const;
+type GroceryItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  checked: boolean;
+  category?: string | null;
+};
+
+type PendingAdd = GroceryItem & {
+  tempId: string;
+  resolvedId?: string;
+};
+
+type DisplayItem = GroceryItem & {
+  pending?: boolean;
+  tempId?: string;
+  resolvedId?: string;
+};
+
+type FloatingIcon = {
+  emoji: string;
+  id: string;
+};
+
+const palette = {
+  amber: '#F7B267',
+  coral: '#F79D65',
+  beige: '#FFF1DF',
+  cream: '#FFF8EE',
+  clay: '#3F2E2C',
+  deepClay: '#2F1F1E',
+  mint: '#3A7D44',
+  sand: '#FDE7C6',
+  border: 'rgba(255,255,255,0.24)',
+};
+
+const QUICK_ADD_SUGGESTIONS = [
+  { label: 'Cheese', emoji: '🧀' },
+  { label: 'Milk', emoji: '🥛' },
+  { label: 'Fresh bread', emoji: '🍞' },
+  { label: 'Broccoli', emoji: '🥦' },
+  { label: 'Strawberries', emoji: '🍓' },
+] as const;
+
+const ICON_MAP: Record<string, string> = {
+  cheese: '🧀',
+  milk: '🥛',
+  bread: '🍞',
+  broccoli: '🥦',
+  pasta: '🍝',
+  egg: '🥚',
+  strawberry: '🍓',
+  banana: '🍌',
+  coffee: '☕️',
+  apple: '🍎',
+  spinach: '🥬',
+  tomato: '🍅',
+  yogurt: '🥣',
+};
+
+function iconForItem(name: string) {
+  const match = Object.keys(ICON_MAP).find((key) =>
+    name.toLowerCase().includes(key),
+  );
+  return match ? ICON_MAP[match] : '🛒';
+}
 
 export default function HomeScreen() {
   const { session } = useSession();
@@ -57,43 +128,166 @@ export default function HomeScreen() {
   const [householdName, setHouseholdName] = useState('');
   const [creatingHousehold, setCreatingHousehold] = useState(false);
   const [itemName, setItemName] = useState('');
-  const [itemQuantity, setItemQuantity] = useState<number>(1);
+  const [itemQuantity, setItemQuantity] = useState(1);
   const [addingItem, setAddingItem] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
-  const [clearingCompleted, setClearingCompleted] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
+  const [floatingIcon, setFloatingIcon] = useState<FloatingIcon | null>(null);
+  const [celebrate, setCelebrate] = useState(false);
+  const [pendingAdds, setPendingAdds] = useState<PendingAdd[]>([]);
+  const [pendingUpdates, setPendingUpdates] = useState<Record<string, boolean>>({});
+  const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(() => new Set());
   const itemInputRef = useRef<TextInput>(null);
+  const celebrationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { items, isLoading: itemsLoading, error: realtimeError, refetch } = useRealtimeList(
-    list?.id ?? null
+  const { items, isLoading: itemsLoading, error: realtimeError } = useRealtimeList(
+    list?.id ?? null,
   );
 
-  const activeItems = useMemo(() => items.filter((item) => !item.checked), [items]);
-  const completedItems = useMemo(() => items.filter((item) => item.checked), [items]);
-  const pendingItems = activeItems.length;
-  const hasItemName = itemName.trim().length > 0;
+  useEffect(() => {
+    if (realtimeError) {
+      console.error('[Home] Realtime list subscription error', realtimeError);
+    }
+  }, [realtimeError]);
 
   useEffect(() => {
-    if (completedItems.length === 0 && showCompleted) {
-      setShowCompleted(false);
-    }
-  }, [completedItems.length, showCompleted]);
-
-  const heroAccents = useMemo(() => {
-    if (!household || !list) {
-      return null;
-    }
-
-    return (
-      <View style={styles.heroAccentWrap}>
-        <HeroAccentPill icon="home-heart" label={household.name} />
-        <HeroAccentPill
-          icon="playlist-check"
-          label={pendingItems > 0 ? `${pendingItems} to pick` : 'List is clear'}
-        />
-        <HeroAccentPill icon="cart-outline" label={list.name} />
-      </View>
+    setPendingAdds((prev) =>
+      prev.filter((pending) =>
+        pending.resolvedId ? !items.some((item) => item.id === pending.resolvedId) : true,
+      ),
     );
-  }, [household, list, pendingItems]);
+  }, [items]);
+
+  useEffect(() => {
+    setPendingUpdates((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      Object.keys(prev).forEach((id) => {
+        const live = items.find((item) => item.id === id);
+        if (live && live.checked === prev[id]) {
+          delete next[id];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [items]);
+
+  useEffect(() => {
+    setPendingDeletes((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      prev.forEach((id) => {
+        if (!items.some((item) => item.id === id)) {
+          next.delete(id);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [items]);
+
+  const displayItems = useMemo<DisplayItem[]>(() => {
+    const base = items
+      .filter((item) => !pendingDeletes.has(item.id))
+      .map<DisplayItem>((item) => {
+        if (pendingUpdates[item.id] !== undefined) {
+          return { ...item, checked: pendingUpdates[item.id], pending: true };
+        }
+        return item;
+      });
+
+    const adds = pendingAdds
+      .filter((item) => (item.resolvedId ? !base.some((baseItem) => baseItem.id === item.resolvedId) : true))
+      .map<DisplayItem>((item) => ({ ...item, pending: true }));
+
+    return [...adds, ...base];
+  }, [items, pendingAdds, pendingDeletes, pendingUpdates]);
+
+  const activeItems = useMemo(
+    () => displayItems.filter((item) => !item.checked),
+    [displayItems],
+  );
+  const completedItems = useMemo(
+    () => displayItems.filter((item) => item.checked),
+    [displayItems],
+  );
+
+  const floatingOpacity = useSharedValue(0);
+  const floatingTranslateY = useSharedValue(0);
+  const floatingScale = useSharedValue(0.8);
+
+  const floatingStyle = useAnimatedStyle(() => ({
+    opacity: floatingOpacity.value,
+    transform: [
+      { translateY: floatingTranslateY.value },
+      { scale: floatingScale.value },
+    ],
+  }));
+
+  const triggerFloatingEmoji = useCallback(
+    (emoji: string) => {
+      setFloatingIcon({ emoji, id: `${emoji}-${Date.now()}` });
+      floatingOpacity.value = 0;
+      floatingTranslateY.value = 0;
+      floatingScale.value = 0.85;
+
+      floatingOpacity.value = withTiming(1, { duration: 140 });
+      floatingScale.value = withSpring(1, { damping: 12, stiffness: 140 });
+      floatingTranslateY.value = withSequence(
+        withTiming(-54, {
+          duration: 320,
+          easing: Easing.out(Easing.cubic),
+        }),
+        withDelay(
+          60,
+          withTiming(-80, {
+            duration: 260,
+            easing: Easing.inOut(Easing.cubic),
+          }),
+        ),
+      );
+
+      floatingOpacity.value = withDelay(
+        320,
+        withTiming(0, { duration: 220 }, (finished) => {
+          if (finished) {
+            runOnJS(setFloatingIcon)(null);
+          }
+        }),
+      );
+    },
+    [floatingOpacity, floatingScale, floatingTranslateY],
+  );
+
+  useEffect(() => {
+    if (loadingContext) return;
+    const hasItems = displayItems.length > 0;
+    const allCleared = hasItems && activeItems.length === 0;
+
+    if (!allCleared) {
+      if (celebrationTimeoutRef.current) {
+        clearTimeout(celebrationTimeoutRef.current);
+        celebrationTimeoutRef.current = null;
+      }
+      setCelebrate(false);
+      return;
+    }
+
+    setCelebrate(true);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    celebrationTimeoutRef.current = setTimeout(() => {
+      setCelebrate(false);
+    }, 2200);
+
+    return () => {
+      if (celebrationTimeoutRef.current) {
+        clearTimeout(celebrationTimeoutRef.current);
+        celebrationTimeoutRef.current = null;
+      }
+    };
+  }, [activeItems.length, displayItems.length, loadingContext]);
 
   const loadContext = useCallback(async () => {
     if (!session) {
@@ -102,6 +296,7 @@ export default function HomeScreen() {
     }
     if (!isSupabaseConfigured || !supabase) {
       setLoadingContext(false);
+      console.error('[Home] Skipping context load: Supabase not configured');
       return;
     }
 
@@ -114,7 +309,10 @@ export default function HomeScreen() {
 
     if (error) {
       toast('Failed to load household information.');
+      setHousehold(null);
+      setList(null);
       setLoadingContext(false);
+      console.error('[Home] Failed to load memberships', error);
       return;
     }
 
@@ -131,10 +329,13 @@ export default function HomeScreen() {
 
     const selectedMembership =
       membershipsWithHouseholds.find(
-        (member) => (member.households as { id: string }).id === activeHouseholdId
+        (member) =>
+          (member.households as { id: string }).id === activeHouseholdId,
       ) ?? membershipsWithHouseholds[0];
 
-    const householdData = selectedMembership.households as { id: string; name: string } | null;
+    const householdData = selectedMembership.households as
+      | { id: string; name: string }
+      | null;
     if (!householdData) {
       setHousehold(null);
       setList(null);
@@ -170,6 +371,7 @@ export default function HomeScreen() {
         toast('Failed to create the default list.');
         setList(null);
         setLoadingContext(false);
+        console.error('[Home] Failed to create default list', createListError);
         return;
       }
 
@@ -179,7 +381,7 @@ export default function HomeScreen() {
     }
 
     setLoadingContext(false);
-  }, [session, activeHouseholdId, setActiveHouseholdId]);
+  }, [activeHouseholdId, session, setActiveHouseholdId]);
 
   useEffect(() => {
     void loadContext();
@@ -189,6 +391,7 @@ export default function HomeScreen() {
     if (!session) return;
     if (!isSupabaseConfigured || !supabase) {
       toast('Supabase is not configured. Please add your credentials.');
+      console.error('[Home] Unable to create household: Supabase not configured');
       return;
     }
     if (!householdName.trim()) {
@@ -214,10 +417,28 @@ export default function HomeScreen() {
         screen: 'Home',
         userId: session.user.id,
         householdName: trimmedName,
-        hasData: Boolean(createdHousehold),
       });
-      toast('Failed to create household. Please try again.');
+      toast('Failed to create household.');
       setCreatingHousehold(false);
+      console.error('[Home] Household creation failed', householdError);
+      return;
+    }
+
+    const { data: createdList, error: listError } = await supabase
+      .from('lists')
+      .insert({ household_id: createdHousehold.id, name: 'Main list' })
+      .select()
+      .single();
+
+    if (listError || !createdList) {
+      logSupabaseError('lists.insert', listError, {
+        screen: 'Home',
+        userId: session.user.id,
+        householdId: createdHousehold.id,
+      });
+      toast('Failed to create default list.');
+      setCreatingHousehold(false);
+      console.error('[Home] Default list creation failed', listError);
       return;
     }
 
@@ -233,29 +454,9 @@ export default function HomeScreen() {
         userId: session.user.id,
         householdId: createdHousehold.id,
       });
-      toast('Failed to join household. Please try again.');
+      toast('Failed to join household.');
       setCreatingHousehold(false);
-      return;
-    }
-
-    const { data: createdList, error: listError } = await supabase
-      .from('lists')
-      .insert({
-        household_id: createdHousehold.id,
-        name: 'Main list',
-      })
-      .select()
-      .single();
-
-    if (listError || !createdList) {
-      logSupabaseError('lists.insert', listError, {
-        screen: 'Home',
-        userId: session.user.id,
-        householdId: createdHousehold.id,
-        hasData: Boolean(createdList),
-      });
-      toast('Failed to create default list.');
-      setCreatingHousehold(false);
+      console.error('[Home] Failed to add member to household', memberError);
       return;
     }
 
@@ -272,6 +473,7 @@ export default function HomeScreen() {
       if (!list || !session) return false;
       if (!isSupabaseConfigured || !supabase) {
         toast('Supabase is not configured. Please add your credentials.');
+        console.error('[Home] Unable to add item: Supabase not configured');
         return false;
       }
       if (addingItem) return false;
@@ -279,466 +481,646 @@ export default function HomeScreen() {
       const trimmedName = name.trim();
       if (!trimmedName) {
         toast('Item name is required.');
+        console.warn('[Home] Ignoring add item: empty name');
         return false;
       }
 
       const safeQuantity =
-        typeof quantity === 'number' && Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+        typeof quantity === 'number' && Number.isFinite(quantity) && quantity > 0
+          ? Math.round(quantity)
+          : 1;
 
       setAddingItem(true);
+      const tempId = `temp-${Date.now()}`;
+      const optimistic: PendingAdd = {
+        id: tempId,
+        tempId,
+        name: trimmedName,
+        quantity: safeQuantity,
+        checked: false,
+        category: null,
+      };
+      setPendingAdds((prev) => [optimistic, ...prev]);
       try {
-        const { error } = await supabase.from('items').insert({
-          list_id: list.id,
-          name: trimmedName,
-          quantity: safeQuantity,
-          added_by: session.user.id,
-        });
+        const { data, error } = await supabase
+          .from('items')
+          .insert({
+            list_id: list.id,
+            name: trimmedName,
+            quantity: safeQuantity,
+            added_by: session.user.id,
+          })
+          .select('id,name,quantity,checked,category')
+          .single();
 
-        if (error) {
+        if (error || !data) {
           toast('Failed to add item.');
+          console.error('[Home] Supabase insert failed for item', error);
+          setPendingAdds((prev) => prev.filter((item) => item.tempId !== tempId));
           return false;
         }
 
-        toast('Item added.');
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        triggerFloatingEmoji(iconForItem(trimmedName));
         setShowCompleted(false);
-        void refetch();
+        Keyboard.dismiss();
+        setPendingAdds((prev) =>
+          prev.map((item) =>
+            item.tempId === tempId ? { ...item, id: data.id, resolvedId: data.id } : item,
+          ),
+        );
         return true;
       } finally {
         setAddingItem(false);
       }
     },
-    [addingItem, list?.id, refetch, session?.user.id]
+    [addingItem, list?.id, session?.user.id, triggerFloatingEmoji],
   );
 
   const handleAddItem = useCallback(async () => {
     if (!itemName.trim()) {
+      toast('What should we add?');
       return;
     }
     const success = await addItem({ name: itemName, quantity: itemQuantity });
     if (success) {
       setItemName('');
       setItemQuantity(1);
-      itemInputRef.current?.focus();
+      itemInputRef.current?.clear();
     }
   }, [addItem, itemName, itemQuantity]);
 
   const handleQuickAdd = useCallback(
-    async (suggestion: string) => {
-      const success = await addItem({ name: suggestion, quantity: 1 });
+    async (label: string) => {
+      const success = await addItem({ name: label, quantity: 1 });
       if (success) {
         setItemName('');
         setItemQuantity(1);
         itemInputRef.current?.focus();
       }
     },
-    [addItem]
+    [addItem],
   );
 
   const handleToggleItem = useCallback(
-    async (item: GroceryItem) => {
-      if (!isSupabaseConfigured || !supabase) {
-        toast('Supabase is not configured.');
+    async (item: DisplayItem) => {
+      if ('tempId' in item && item.tempId && item.id.startsWith('temp-')) {
+        setPendingAdds((prev) =>
+          prev.map((pending) =>
+            pending.tempId === item.tempId ? { ...pending, checked: !item.checked } : pending,
+          ),
+        );
+        void Haptics.selectionAsync();
         return;
       }
+
+      if (!isSupabaseConfigured || !supabase) {
+        toast('Supabase is not configured.');
+        console.error('[Home] Unable to toggle item: Supabase not configured');
+        return;
+      }
+      const nextChecked = !item.checked;
+      setPendingUpdates((prev) => ({ ...prev, [item.id]: nextChecked }));
+      void Haptics.selectionAsync();
+
       const { error } = await supabase
         .from('items')
-        .update({ checked: !item.checked })
+        .update({ checked: nextChecked })
         .eq('id', item.id);
+
       if (error) {
         toast('Unable to update item.');
+        console.error('[Home] Supabase update failed for toggle', error, { itemId: item.id });
+        setPendingUpdates((prev) => {
+          const next = { ...prev };
+          delete next[item.id];
+          return next;
+        });
+        return;
       }
+
+      setPendingUpdates((prev) => {
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
     },
-    []
+    [],
   );
 
   const handleDeleteItem = useCallback(
-    async (item: GroceryItem) => {
+    async (item: DisplayItem) => {
+      if ('tempId' in item && item.tempId && item.id.startsWith('temp-')) {
+        setPendingAdds((prev) => prev.filter((pending) => pending.tempId !== item.tempId));
+        return;
+      }
+
       if (!isSupabaseConfigured || !supabase) {
         toast('Supabase is not configured.');
+        console.error('[Home] Unable to delete item: Supabase not configured');
         return;
       }
+
+      setPendingDeletes((prev) => {
+        const next = new Set(prev);
+        next.add(item.id);
+        return next;
+      });
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
       const { error } = await supabase.from('items').delete().eq('id', item.id);
       if (error) {
-        logSupabaseError('items.delete', error, {
-          screen: 'Home',
-          userId: session?.user.id,
-          itemId: item.id,
-          listId: list?.id,
+        toast('Unable to remove item.');
+        console.error('[Home] Supabase delete failed for item', error, { itemId: item.id });
+        setPendingDeletes((prev) => {
+          const next = new Set(prev);
+          next.delete(item.id);
+          return next;
         });
-        toast('Failed to delete item.');
         return;
       }
-      toast('Item removed.');
-      void refetch();
+
+      console.log('[Home] Item removed', { itemId: item.id, name: item.name });
     },
-    [list?.id, refetch, session?.user.id]
+    [],
   );
 
-  const handleClearCompleted = useCallback(async () => {
-    if (!list || completedItems.length === 0) {
-      return;
-    }
+  const handleClearAll = useCallback(async () => {
+    if (!list) return;
     if (!isSupabaseConfigured || !supabase) {
       toast('Supabase is not configured.');
+      console.error('[Home] Unable to clear list: Supabase not configured');
       return;
     }
-    setClearingCompleted(true);
-    try {
-      const { error } = await supabase
-        .from('items')
-        .delete()
-        .eq('list_id', list.id)
-        .eq('checked', true);
+    if (displayItems.length === 0) {
+      toast('List is already empty.');
+      console.info('[Home] Clear list skipped: list already empty');
+      return;
+    }
 
+    setPendingAdds([]);
+    setPendingUpdates({});
+    setPendingDeletes((prev) => {
+      const next = new Set(prev);
+      displayItems.forEach((item) => {
+        if (item.id) {
+          next.add(item.id);
+        }
+      });
+      return next;
+    });
+
+    setClearingAll(true);
+    try {
+      const { error } = await supabase.from('items').delete().eq('list_id', list.id);
       if (error) {
-        toast('Failed to clear completed items.');
+        toast('Unable to clear the list.');
+        console.error('[Home] Supabase delete failed when clearing list', error, {
+          listId: list.id,
+        });
         return;
       }
-
-      toast('Cleared checked items.');
       setShowCompleted(false);
-      void refetch();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      console.log('[Home] List cleared', { listId: list.id });
     } finally {
-      setClearingCompleted(false);
+      setClearingAll(false);
     }
-  }, [completedItems.length, list?.id, refetch]);
+  }, [displayItems, list?.id]);
 
-  const listHeaderComponent =
-    household && list ? (
-      <View style={styles.headerSection}>
-        <View style={styles.listSummary}>
-          <View style={styles.listSummaryMeta}>
-            <Text style={styles.listSummaryTitle}>{household.name}</Text>
-            <Text style={styles.listSummarySubtitle}>{list.name}</Text>
-          </View>
-          <View style={styles.listSummaryStats}>
-            <View style={styles.summaryBadge}>
-              <MaterialCommunityIcons name="cart-outline" size={18} color={colors.textPrimary} />
-              <Text style={styles.summaryBadgeText}>
-                {pendingItems} active
-              </Text>
-            </View>
-          </View>
-        </View>
-        {heroAccents}
-        <View style={styles.fastAddCard}>
-          <Text style={styles.fastAddTitle}>Quick add</Text>
-          <View style={styles.fastAddRow}>
-            <View style={styles.fastAddInputWrapper}>
-              <TextInput
-                ref={itemInputRef}
-                style={styles.fastAddInput}
-                value={itemName}
-                onChangeText={setItemName}
-                placeholder="Add an item..."
-                placeholderTextColor={colors.textSecondary}
-                autoCapitalize="words"
-                autoCorrect={false}
-                returnKeyType="done"
-                onSubmitEditing={() => {
-                  void handleAddItem();
-                }}
-              />
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Add item"
-              onPress={() => {
-                void handleAddItem();
-              }}
-              disabled={!hasItemName || addingItem}
-              style={({ pressed }) => [
-                styles.fastAddButton,
-                (!hasItemName || addingItem) && styles.fastAddButtonDisabled,
-                pressed && !addingItem && hasItemName ? styles.fastAddButtonPressed : null,
-              ]}>
-              {addingItem ? (
-                <ActivityIndicator color={colors.surface} />
-              ) : (
-                <MaterialCommunityIcons
-                  name="plus"
-                  size={20}
-                  color={hasItemName ? colors.surface : colors.textSecondary}
-                />
-              )}
-            </Pressable>
-          </View>
-          <View style={styles.quantitySelector}>
-            <Text style={styles.quantityLabel}>Qty {itemQuantity}</Text>
-            <View style={styles.quantityOptions}>
-              {QUANTITY_OPTIONS.map((option) => (
-                <Pressable
-                  key={option}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Set quantity ${option}`}
-                  onPress={() => setItemQuantity(option)}
-                  style={({ pressed }) => [
-                    styles.quantityOption,
-                    itemQuantity === option && styles.quantityOptionActive,
-                    pressed && styles.quantityOptionPressed,
-                  ]}>
-                  <Text
-                    style={[
-                      styles.quantityOptionText,
-                      itemQuantity === option && styles.quantityOptionTextActive,
-                    ]}>
-                    {option}
-                  </Text>
-                </Pressable>
-              ))}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Decrease quantity"
-                disabled={itemQuantity <= 1}
-                onPress={() => setItemQuantity((prev) => Math.max(1, prev - 1))}
-                style={({ pressed }) => [
-                  styles.quantityOption,
-                  styles.quantityAdjust,
-                  itemQuantity <= 1 && styles.quantityAdjustDisabled,
-                  pressed && itemQuantity > 1 ? styles.quantityOptionPressed : null,
-                ]}>
-                <MaterialCommunityIcons
-                  name="minus"
-                  size={16}
-                  color={itemQuantity <= 1 ? colors.textSecondary : colors.textPrimary}
-                />
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Increase quantity"
-                onPress={() => setItemQuantity((prev) => prev + 1)}
-                style={({ pressed }) => [
-                  styles.quantityOption,
-                  styles.quantityAdjust,
-                  pressed && styles.quantityOptionPressed,
-                ]}>
-                <MaterialCommunityIcons name="plus" size={16} color={colors.textPrimary} />
-              </Pressable>
-            </View>
-          </View>
-          <View style={styles.quickAdd}>
-            <Text style={styles.quickAddHeading}>Popular picks</Text>
-            <View style={styles.quickAddChips}>
-              {QUICK_ADD_OPTIONS.map((option) => (
-                <Pressable
-                  key={option}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Quick add ${option}`}
-                  style={({ pressed }) => [
-                    styles.quickAddChip,
-                    pressed && styles.quickAddChipPressed,
-                  ]}
-                  onPress={() => {
-                    void handleQuickAdd(option);
-                  }}>
-                  <Text style={styles.quickAddChipText}>{option}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        </View>
-        <View style={styles.sectionMeta}>
-          <Text style={styles.sectionMetaText}>
-            {pendingItems > 0
-              ? `${pendingItems} item${pendingItems === 1 ? '' : 's'} left to grab`
-              : 'All caught up—add the next thing you need.'}
-          </Text>
-          <Text style={styles.sectionMetaHint}>
-            Tap items as you shop to keep everyone in sync.
-          </Text>
-        </View>
-        <Text style={styles.sectionTitle}>Shared grocery list</Text>
-      </View>
-    ) : null;
+  const incrementQuantity = useCallback(() => {
+    setItemQuantity((prev) => {
+      const next = Math.min(prev + 1, 99);
+      if (next !== prev) {
+        void Haptics.selectionAsync();
+      }
+      return next;
+    });
+  }, []);
 
-  const renderListEmpty = useCallback(() => {
-    return (
-      <View style={styles.listItem}>
-        {itemsLoading ? (
-          <View style={styles.emptyStateCard}>
-            <ActivityIndicator color={colors.primary} />
-            <Text style={styles.emptyStateText}>Syncing your list…</Text>
-          </View>
-        ) : completedItems.length > 0 ? (
-          <EmptyState
-            title="Nothing left to grab"
-            description="Everything's checked off. Add whatever comes next."
-          />
-        ) : (
-          <EmptyState
-            title="Your list is wide open"
-            description="Add the first ingredient and we'll keep everyone in sync."
-          />
-        )}
-      </View>
-    );
-  }, [completedItems.length, itemsLoading]);
+  const decrementQuantity = useCallback(() => {
+    setItemQuantity((prev) => {
+      const next = Math.max(prev - 1, 1);
+      if (next !== prev) {
+        void Haptics.selectionAsync();
+      }
+      return next;
+    });
+  }, []);
 
-  const listFooterComponent = useMemo(() => {
-    if (!completedItems.length && !realtimeError) {
+  const renderItem = useCallback(
+    ({ item }: { item: GroceryItem }) => (
+      <GroceryListItem
+        item={item}
+        onToggle={() => handleToggleItem(item)}
+        onDelete={() => handleDeleteItem(item)}
+      />
+    ),
+    [handleDeleteItem, handleToggleItem],
+  );
+
+  const renderCompleted = useMemo(() => {
+    if (!showCompleted || completedItems.length === 0) {
       return null;
     }
 
     return (
-      <View style={styles.listFooter}>
-        {completedItems.length ? (
-          <View style={styles.completedSection}>
-            <View style={styles.completedHeader}>
-              <Text style={styles.completedTitle}>Checked off</Text>
-              <View style={styles.completedActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={showCompleted ? 'Hide checked items' : 'Show checked items'}
-                  onPress={() => setShowCompleted((prev) => !prev)}
-                  style={({ pressed }) => [
-                    styles.completedToggle,
-                    pressed && styles.completedTogglePressed,
-                  ]}>
-                  <Text style={styles.completedToggleText}>
-                    {showCompleted ? 'Hide list' : `Show (${completedItems.length})`}
-                  </Text>
-                </Pressable>
-                <Button
-                  title="Clear checked"
-                  onPress={handleClearCompleted}
-                  variant="ghost"
-                  loading={clearingCompleted}
-                  disabled={clearingCompleted}
-                />
-              </View>
-            </View>
-            {showCompleted ? (
-              <View style={styles.completedList}>
-                {completedItems.map((item) => (
-                  <View key={item.id} style={styles.completedItem}>
-                    <ItemRow item={item} onToggle={handleToggleItem} onDelete={handleDeleteItem} />
-                  </View>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-        {realtimeError ? <Text style={styles.errorText}>{realtimeError}</Text> : null}
+      <View style={styles.completedContainer}>
+        <View style={styles.completedHeader}>
+          <Text style={styles.completedTitle}>Checked off</Text>
+          <Text style={styles.completedCount}>{completedItems.length}</Text>
+        </View>
+        <View style={styles.completedList}>
+          {completedItems.map((item) => (
+            <GroceryListItem
+              key={item.id}
+              item={item}
+              onToggle={() => handleToggleItem(item)}
+              onDelete={() => handleDeleteItem(item)}
+            />
+          ))}
+        </View>
       </View>
     );
-  }, [
-    clearingCompleted,
-    completedItems,
-    handleClearCompleted,
-    handleDeleteItem,
-    handleToggleItem,
-    realtimeError,
-    showCompleted,
-  ]);
+  }, [completedItems, handleDeleteItem, handleToggleItem, showCompleted]);
 
-  if (!isSupabaseConfigured || !supabase) {
+  const predictedIcon = itemName.trim() ? iconForItem(itemName) : '🛒';
+  const predictedLabel = itemName.trim() || 'Add something tasty';
+
+  if (loadingContext || itemsLoading) {
     return (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}>
-        <View style={styles.screen}>
-          <LinearGradient colors={HOME_GRADIENT} style={styles.backgroundGradient} pointerEvents="none" />
-          <View style={styles.centeredContent}>
-            <EmptyState
-              title="Supabase not configured"
-              description="Add your Supabase credentials to start managing your groceries."
-            />
-          </View>
-        </View>
-      </KeyboardAvoidingView>
+      <LinearGradient
+        colors={[palette.beige, palette.sand]}
+        style={[styles.flex, styles.center]}>
+        <ActivityIndicator size="small" color={palette.coral} />
+        <Text style={styles.loadingText}>Warming up your pantry...</Text>
+      </LinearGradient>
     );
   }
 
-  if (!session) {
-    return <LoadingState message="Preparing your Groceo experience…" />;
-  }
-
-  if (loadingContext) {
-    return <LoadingState message="Loading your household…" />;
-  }
-
-  if (!household) {
+  if (!household || !list) {
     return (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}>
-        <View style={styles.screen}>
-          <LinearGradient colors={CREATE_GRADIENT} style={styles.backgroundGradient} pointerEvents="none" />
-          <ScrollView
-            contentContainerStyle={styles.contentContainer}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
-            <OnboardingHero illustration={CREATE_ILLUSTRATION} />
-            <View style={styles.headerCopy}>
-              <Text style={styles.headline}>Create your first household</Text>
-              <Text style={styles.subheadline}>
-                Invite the people who shop with you later. Start with a name everyone recognizes.
+      <SafeAreaView style={styles.flex}>
+        <LinearGradient colors={[palette.beige, palette.cream]} style={styles.flex}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={[styles.flex, styles.center, styles.createContainer]}>
+            <View style={styles.createCard}>
+              <Text style={styles.createTitle}>Welcome to Groceo ✨</Text>
+              <Text style={styles.createSubtitle}>
+                Create a household so everyone can add and check items together.
               </Text>
+              <TextField
+                label="Household name"
+                value={householdName}
+                onChangeText={setHouseholdName}
+                placeholder="The Groceo crew"
+              />
+              <Button
+                title="Create household"
+                onPress={handleCreateHousehold}
+                loading={creatingHousehold}
+              />
             </View>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Household name</Text>
-                <Text style={styles.cardSubtitle}>
-                  A clear name keeps the right crew in the loop.
-                </Text>
-              </View>
-              <View style={styles.formFields}>
-                <TextField
-                  label="Household name"
-                  value={householdName}
-                  onChangeText={setHouseholdName}
-                  placeholder="The Groceo crew"
-                />
-                <Button
-                  title="Create household"
-                  onPress={handleCreateHousehold}
-                  loading={creatingHousehold}
-                />
-              </View>
-            </View>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </LinearGradient>
+      </SafeAreaView>
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.flex}>
-      <View style={styles.screen}>
-        <LinearGradient colors={HOME_GRADIENT} style={styles.backgroundGradient} pointerEvents="none" />
-        <FlatList
-          data={activeItems}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.listItem}>
-              <ItemRow item={item} onToggle={handleToggleItem} onDelete={handleDeleteItem} />
-            </View>
-          )}
-          ListHeaderComponent={listHeaderComponent}
-          ListEmptyComponent={renderListEmpty}
-          ListFooterComponent={listFooterComponent}
-          contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-          refreshing={itemsLoading}
-          onRefresh={refetch}
-          showsVerticalScrollIndicator={false}
-        />
-      </View>
-    </KeyboardAvoidingView>
+    <SafeAreaView style={styles.flex}>
+      <LinearGradient
+        colors={[palette.beige, palette.cream]}
+        style={styles.flex}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.flex}>
+          <View style={styles.container}>
+            <FlatList
+              data={activeItems}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              ListHeaderComponent={
+                <View style={styles.headerArea}>
+                  <View style={styles.headerRow}>
+                    <View>
+                      <Text style={styles.appTitle}>Groceo ✨</Text>
+                      <Text style={styles.appSubtitle}>Shared lists that stay in sync.</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.avatarBadge}
+                      onPress={() => toast('Household switcher coming soon!')}>
+                      <LinearGradient
+                        colors={[palette.coral, palette.amber]}
+                        style={styles.avatarGradient}>
+                        <Text style={styles.avatarInitial}>
+                          {session?.user.email?.[0]?.toUpperCase() ?? 'U'}
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.summaryRow}>
+                    <View style={styles.summaryBadge}>
+                      <Feather name="home" size={16} color={palette.clay} />
+                      <Text style={styles.summaryBadgeText}>{household.name}</Text>
+                    </View>
+                    <View style={styles.summaryBadge}>
+                      <Feather name="shopping-bag" size={16} color={palette.clay} />
+                      <Text style={styles.summaryBadgeText}>
+                        {activeItems.length} {activeItems.length === 1 ? 'item' : 'items'} to pick
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.addCard}>
+                    <LinearGradient
+                      colors={['rgba(255,255,255,0.95)', palette.cream]}
+                      style={styles.addCardGradient}>
+                      <View style={styles.addRow}>
+                        <Ionicons name="md-search" size={20} color={palette.deepClay} />
+                        <TextInput
+                          ref={itemInputRef}
+                          value={itemName}
+                          onChangeText={setItemName}
+                          placeholder="Add an item or scan a product..."
+                          placeholderTextColor="rgba(63,31,30,0.45)"
+                          style={styles.input}
+                          returnKeyType="done"
+                          onSubmitEditing={handleAddItem}
+                        />
+                        <TouchableOpacity
+                          style={styles.cameraButton}
+                          onPress={() => toast('Scanning soon!')}>
+                          <Feather name="camera" size={18} color={palette.coral} />
+                        </TouchableOpacity>
+                      </View>
+                      <View style={styles.quantityRow}>
+                        <Text style={styles.quantityLabel}>Quantity</Text>
+                        <View style={styles.quantityStepper}>
+                          <TouchableOpacity
+                            style={styles.stepperButton}
+                            onPress={decrementQuantity}>
+                            <Feather name="minus" size={16} color={palette.clay} />
+                          </TouchableOpacity>
+                          <Text style={styles.quantityValue}>{itemQuantity}</Text>
+                          <TouchableOpacity
+                            style={styles.stepperButton}
+                            onPress={incrementQuantity}>
+                            <Feather name="plus" size={16} color={palette.clay} />
+                          </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.addButton, addingItem && styles.addButtonDisabled]}
+                          disabled={addingItem}
+                          onPress={handleAddItem}>
+                          {addingItem ? (
+                            <ActivityIndicator size="small" color={palette.deepClay} />
+                          ) : (
+                            <Text style={styles.addButtonText}>Add</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                      <Animated.View
+                        entering={FadeInUp.springify().damping(16)}
+                        layout={Layout.springify().damping(18).stiffness(160)}
+                        style={[
+                          styles.previewCard,
+                          !itemName.trim() && styles.previewCardIdle,
+                        ]}>
+                        <View style={styles.previewIconBubble}>
+                          <Text style={styles.previewIcon}>{predictedIcon}</Text>
+                        </View>
+                        <View style={styles.previewCopy}>
+                          <Text style={styles.previewLabel}>{predictedLabel}</Text>
+                          <Text style={styles.previewHint}>
+                            {itemName.trim()
+                              ? 'Tap add or hit return to drop it in the list.'
+                              : 'Type an item or tap a quick suggestion.'}
+                          </Text>
+                        </View>
+                      </Animated.View>
+                      <Animated.View entering={FadeIn.duration(200)} style={styles.suggestionRow}>
+                        {QUICK_ADD_SUGGESTIONS.map((suggestion, index) => (
+                          <Animated.View
+                            key={suggestion.label}
+                            entering={FadeInUp.springify().delay(index * 40)}>
+                            <TouchableOpacity
+                              style={styles.suggestionChip}
+                              onPress={() => handleQuickAdd(suggestion.label)}>
+                              <Text style={styles.suggestionEmoji}>{suggestion.emoji}</Text>
+                              <Text style={styles.suggestionText}>{suggestion.label}</Text>
+                            </TouchableOpacity>
+                          </Animated.View>
+                        ))}
+                      </Animated.View>
+                    </LinearGradient>
+                  </View>
+
+                  {realtimeError ? (
+                    <View style={styles.errorBanner}>
+                      <Feather name="alert-triangle" size={16} color="#402018" />
+                      <Text style={styles.errorBannerText}>
+                        Having trouble syncing. Pull to refresh.
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              }
+              ListFooterComponent={
+                <View style={styles.footerSpacer}>
+                  <TouchableOpacity
+                    style={styles.completedToggle}
+                    onPress={() => setShowCompleted((prev) => !prev)}
+                    disabled={completedItems.length === 0}>
+                    <Feather
+                      name={showCompleted ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={palette.clay}
+                    />
+                    <Text style={styles.completedToggleText}>
+                      {completedItems.length === 0
+                        ? 'No completed items yet'
+                        : showCompleted
+                        ? 'Hide completed'
+                        : `Show completed (${completedItems.length})`}
+                    </Text>
+                  </TouchableOpacity>
+                  {renderCompleted}
+                  <View style={styles.bottomSpacer} />
+                </View>
+              }
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+            />
+
+            <Animated.View entering={FadeInUp.duration(220)} style={styles.bottomBar}>
+              <TouchableOpacity
+                style={styles.shareButton}
+                onPress={() => toast('List shared with your household!')}>
+                <Feather name="users" size={18} color={palette.deepClay} />
+                <Text style={styles.shareText}>Share list</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.clearButton,
+                  (clearingAll || displayItems.length === 0) && styles.clearButtonDisabled,
+                ]}
+                onPress={handleClearAll}
+                disabled={clearingAll || displayItems.length === 0}>
+                {clearingAll ? (
+                  <ActivityIndicator size="small" color={palette.deepClay} />
+                ) : (
+                  <>
+                    <Feather name="trash-2" size={16} color={palette.deepClay} />
+                    <Text style={styles.clearText}>Clear list</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.sortButton}
+                onPress={() => toast('Sort & filter coming soon!')}>
+                <Feather name="sliders" size={18} color={palette.deepClay} />
+              </TouchableOpacity>
+            </Animated.View>
+
+            {floatingIcon ? (
+              <Animated.View style={[styles.floatingIcon, floatingStyle]}>
+                <Text style={styles.floatingIconText}>{floatingIcon.emoji}</Text>
+              </Animated.View>
+            ) : null}
+
+            {celebrate ? <CelebrationOverlay /> : null}
+          </View>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </SafeAreaView>
   );
 }
 
-function LoadingState({ message }: { message: string }) {
+type GroceryListItemProps = {
+  item: DisplayItem;
+  onToggle: () => void;
+  onDelete: () => void;
+};
+
+function GroceryListItem({ item, onToggle, onDelete }: GroceryListItemProps) {
   return (
-    <View style={styles.screen}>
-      <LinearGradient colors={HOME_GRADIENT} style={styles.backgroundGradient} pointerEvents="none" />
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator color={colors.primary} />
-        <Text style={styles.loadingMessage}>{message}</Text>
+    <Swipeable
+      overshootLeft={false}
+      overshootRight={false}
+      renderLeftActions={() => (
+        <View style={styles.leftAction}>
+          <Feather name="check-circle" size={18} color="#FFFFFF" />
+          <Text style={styles.leftActionText}>Bought</Text>
+        </View>
+      )}
+      renderRightActions={() => (
+        <View style={styles.rightActions}>
+          <TouchableOpacity style={styles.rightAction} onPress={onDelete}>
+            <Feather name="trash-2" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      )}
+      onSwipeableOpen={(direction) => {
+        if (direction === 'left') {
+          onToggle();
+        } else {
+          onDelete();
+        }
+      }}>
+      <Animated.View
+        entering={FadeInDown.springify().damping(16)}
+        exiting={FadeOutUp.duration(180)}
+        layout={Layout.springify().damping(16).stiffness(140)}
+        style={[styles.itemCard, item.checked && styles.itemCardChecked]}>
+        <TouchableOpacity
+          onPress={onToggle}
+          style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
+          {item.checked ? <Feather name="check" size={16} color="#FFFFFF" /> : null}
+        </TouchableOpacity>
+        <View style={styles.itemContent}>
+          <Text style={[styles.itemName, item.checked && styles.itemNameChecked]}>
+            {item.name}
+          </Text>
+          <Text style={styles.itemMeta}>
+            {item.quantity > 1 ? `Qty ${item.quantity}` : 'Just one'}
+          </Text>
+        </View>
+        <View style={styles.itemTrailing}>
+          <View style={styles.itemIconBubble}>
+            <Text style={styles.itemIcon}>{iconForItem(item.name)}</Text>
+          </View>
+          <TouchableOpacity style={styles.itemDeleteButton} onPress={onDelete}>
+            <Feather name="trash-2" size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    </Swipeable>
+  );
+}
+
+function CelebrationOverlay() {
+  const confetti = ['🛒', '🧺', '🎉', '🥳', '🛍️'];
+
+  return (
+    <Animated.View
+      entering={FadeIn.duration(180)}
+      exiting={FadeOut.duration(240)}
+      pointerEvents="none"
+      style={styles.celebrationOverlay}>
+      <Animated.View
+        entering={FadeInDown.springify().damping(12)}
+        style={styles.celebrationCard}>
+        <Text style={styles.celebrationEmoji}>🧺</Text>
+        <Text style={styles.celebrationTitle}>List clear!</Text>
+        <Text style={styles.celebrationSubtitle}>
+          Everything’s checked off — enjoy the calm kitchen.
+        </Text>
+      </Animated.View>
+
+      <View style={styles.confettiArea}>
+        {confetti.map((emoji, index) => (
+          <ConfettiPiece key={`${emoji}-${index}`} emoji={emoji} delay={index * 90} />
+        ))}
       </View>
-    </View>
+    </Animated.View>
+  );
+}
+
+type ConfettiPieceProps = {
+  emoji: string;
+  delay: number;
+};
+
+function ConfettiPiece({ emoji, delay }: ConfettiPieceProps) {
+  const translateY = useSharedValue(0);
+  const rotate = useSharedValue(0);
+  const opacity = useSharedValue(1);
+
+  useEffect(() => {
+    translateY.value = withSequence(
+      withDelay(
+        delay,
+        withTiming(-90, { duration: 560, easing: Easing.out(Easing.cubic) }),
+      ),
+      withTiming(-20, { duration: 480, easing: Easing.inOut(Easing.cubic) }),
+    );
+    rotate.value = withTiming(360, { duration: 900 });
+    opacity.value = withDelay(delay + 320, withTiming(0, { duration: 260 }));
+  }, [delay, opacity, rotate, translateY]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: translateY.value },
+      { rotate: `${rotate.value}deg` },
+    ],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.Text style={[styles.confettiPiece, animatedStyle]}>{emoji}</Animated.Text>
   );
 }
 
@@ -746,354 +1128,515 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  screen: {
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  container: {
     flex: 1,
-    backgroundColor: colors.background,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
-  backgroundGradient: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.55,
+  headerArea: {
+    gap: spacing.lg,
+    paddingBottom: spacing.lg,
   },
-  centeredContent: {
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  appTitle: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: palette.clay,
+  },
+  appSubtitle: {
+    ...textStyles.caption,
+    color: 'rgba(63,31,30,0.6)',
+  },
+  avatarBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
+  avatarGradient: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
   },
-  contentContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xl,
-    gap: spacing.lg,
+  avatarInitial: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  headerSection: {
-    gap: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  heroAccentWrap: {
+  summaryRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  headerCopy: {
-    gap: spacing.sm,
-  },
-  listSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.lg,
-  },
-  listSummaryMeta: {
-    gap: spacing.xs,
-    flex: 1,
-  },
-  listSummaryTitle: {
-    ...textStyles.title,
-    fontSize: 28,
-  },
-  listSummarySubtitle: {
-    ...textStyles.caption,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  listSummaryStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.sm,
   },
   summaryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: colors.surface,
+    backgroundColor: palette.sand,
+    borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   summaryBadgeText: {
     ...textStyles.caption,
+    color: palette.clay,
     fontWeight: '600',
-    color: colors.textPrimary,
   },
-  headline: {
-    ...textStyles.title,
-    fontSize: 30,
+  addCard: {
+    borderRadius: radius.lg,
+    padding: 1,
+    backgroundColor: 'rgba(247, 157, 101, 0.2)',
   },
-  subheadline: {
-    ...textStyles.body,
-    color: colors.textSecondary,
-  },
-  card: {
-    backgroundColor: colors.surface,
+  addCardGradient: {
     borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.md,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 4,
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 16 },
+    shadowRadius: 28,
+    elevation: 12,
   },
-  cardHeader: {
-    gap: spacing.xs,
-  },
-  cardTitle: {
-    ...textStyles.subtitle,
-    fontSize: 20,
-    color: colors.textPrimary,
-  },
-  cardSubtitle: {
-    ...textStyles.body,
-    color: colors.textSecondary,
-  },
-  formFields: {
-    gap: spacing.md,
-  },
-  fastAddCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.md,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 4,
-  },
-  fastAddTitle: {
-    ...textStyles.caption,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  fastAddRow: {
+  addRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  fastAddInputWrapper: {
+  input: {
     flex: 1,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-  },
-  fastAddInput: {
-    height: 44,
     fontSize: 16,
-    color: colors.textPrimary,
+    fontWeight: '500',
+    color: palette.clay,
+    paddingVertical: spacing.sm,
   },
-  fastAddButton: {
-    height: 44,
-    width: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
+  cameraButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(247, 157, 101, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fastAddButtonPressed: {
-    transform: [{ scale: 0.97 }],
-  },
-  fastAddButtonDisabled: {
-    backgroundColor: colors.border,
-    opacity: 0.6,
-  },
-  quantitySelector: {
+  quantityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   quantityLabel: {
     ...textStyles.caption,
+    color: 'rgba(63,31,30,0.6)',
     fontWeight: '600',
-    color: colors.textSecondary,
   },
-  quantityOptions: {
+  quantityStepper: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  quantityOption: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    backgroundColor: 'rgba(63,31,30,0.05)',
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
-  quantityOptionPressed: {
-    opacity: 0.7,
+  stepperButton: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
   },
-  quantityOptionActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  quantityValue: {
+    minWidth: 28,
+    textAlign: 'center',
+    fontWeight: '700',
+    color: palette.clay,
   },
-  quantityOptionText: {
-    ...textStyles.caption,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  quantityOptionTextActive: {
-    color: colors.surface,
-  },
-  quantityAdjust: {
-    paddingHorizontal: 0,
-    width: 36,
-    height: 32,
-    borderRadius: radius.md,
+  addButton: {
+    marginLeft: 'auto',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: palette.amber,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  quantityAdjustDisabled: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    opacity: 0.6,
+  addButtonDisabled: {
+    opacity: 0.7,
   },
-  quickAdd: {
-    gap: spacing.sm,
+  addButtonText: {
+    fontWeight: '700',
+    color: palette.deepClay,
   },
-  quickAddHeading: {
-    ...textStyles.caption,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-    color: colors.textSecondary,
-  },
-  quickAddChips: {
+  suggestionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  quickAddChip: {
-    backgroundColor: colors.background,
+  previewCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: 'rgba(63,31,30,0.06)',
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  previewCardIdle: {
+    backgroundColor: 'rgba(63,31,30,0.04)',
+  },
+  previewIconBubble: {
+    width: 44,
+    height: 44,
     borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  previewIcon: {
+    fontSize: 24,
+  },
+  previewCopy: {
+    flex: 1,
+    gap: spacing.xs / 2,
+  },
+  previewLabel: {
+    fontWeight: '600',
+    color: palette.clay,
+  },
+  previewHint: {
+    ...textStyles.caption,
+    color: 'rgba(63,31,30,0.55)',
+  },
+  suggestionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(63,31,30,0.06)',
   },
-  quickAddChipPressed: {
-    opacity: 0.7,
+  suggestionEmoji: {
+    fontSize: 16,
   },
-  quickAddChipText: {
+  suggestionText: {
     ...textStyles.caption,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  sectionMeta: {
-    gap: spacing.xs,
-  },
-  sectionMetaText: {
-    ...textStyles.body,
+    color: palette.clay,
     fontWeight: '600',
   },
-  sectionMetaHint: {
-    ...textStyles.caption,
-    color: colors.textSecondary,
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: '#FEE4D5',
   },
-  sectionTitle: {
-    ...textStyles.subtitle,
-    fontSize: 18,
-    color: colors.textPrimary,
-    fontWeight: '700',
+  errorBannerText: {
+    ...textStyles.caption,
+    color: '#402018',
+    flex: 1,
   },
   listContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xl * 1.2,
-  },
-  listItem: {
-    marginBottom: spacing.md,
-  },
-  listFooter: {
-    gap: spacing.lg,
-    paddingTop: spacing.xl,
-  },
-  completedSection: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    paddingBottom: spacing.xl * 4,
     gap: spacing.md,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
+  },
+  footerSpacer: {
+    gap: spacing.md,
+  },
+  completedToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(63,31,30,0.08)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+  },
+  completedToggleText: {
+    ...textStyles.caption,
+    color: palette.clay,
+    fontWeight: '600',
+  },
+  completedContainer: {
+    gap: spacing.sm,
   },
   completedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  completedTitle: {
-    ...textStyles.subtitle,
-    fontSize: 18,
-  },
-  completedActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.sm,
   },
-  completedToggle: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-  },
-  completedTogglePressed: {
-    opacity: 0.7,
-  },
-  completedToggleText: {
+  completedTitle: {
     ...textStyles.caption,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: 'rgba(63,31,30,0.6)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  completedCount: {
+    ...textStyles.caption,
+    color: 'rgba(63,31,30,0.45)',
   },
   completedList: {
     gap: spacing.sm,
   },
-  completedItem: {
-    marginBottom: spacing.sm,
-  },
-  emptyStateCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+  itemCard: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
+    backgroundColor: palette.cream,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 12 },
+    shadowRadius: 22,
+    elevation: 8,
   },
-  emptyStateText: {
-    ...textStyles.body,
-    color: colors.textSecondary,
+  itemCardChecked: {
+    opacity: 0.6,
   },
-  errorText: {
-    color: colors.error,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  loadingContainer: {
-    flex: 1,
+  checkbox: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: palette.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.md,
+    backgroundColor: '#FFFFFF',
+  },
+  checkboxChecked: {
+    backgroundColor: palette.mint,
+    borderColor: palette.mint,
+  },
+  itemContent: {
+    flex: 1,
+    gap: spacing.xs / 2,
+  },
+  itemName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: palette.clay,
+  },
+  itemNameChecked: {
+    color: 'rgba(63,31,30,0.6)',
+    textDecorationLine: 'line-through',
+  },
+  itemMeta: {
+    ...textStyles.caption,
+    color: 'rgba(63,31,30,0.55)',
+  },
+  itemIcon: {
+    fontSize: 24,
+  },
+  itemTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  itemIconBubble: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  itemDeleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EB5757',
+  },
+  leftAction: {
+    width: 96,
+    marginVertical: 6,
+    borderRadius: radius.lg,
+    backgroundColor: palette.mint,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  leftActionText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  rightActions: {
+    width: 72,
+    marginVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rightAction: {
+    width: 56,
+    height: '90%',
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EB5757',
+  },
+  bottomSpacer: {
+    height: spacing.xl * 2,
+  },
+  bottomBar: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: spacing.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 16 },
+    shadowRadius: 28,
+    elevation: 14,
+  },
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: palette.amber,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  shareText: {
+    fontWeight: '700',
+    color: palette.deepClay,
+  },
+  clearButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: 'rgba(63,31,30,0.08)',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  clearButtonDisabled: {
+    opacity: 0.6,
+  },
+  clearText: {
+    fontWeight: '600',
+    color: palette.deepClay,
+  },
+  sortButton: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(63,31,30,0.12)',
+  },
+  floatingIcon: {
+    position: 'absolute',
+    top: 180,
+    left: spacing.lg + 36,
+  },
+  floatingIconText: {
+    fontSize: 28,
+  },
+  celebrationOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  celebrationCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.xs,
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 20 },
+    shadowRadius: 30,
+    elevation: 18,
+  },
+  celebrationEmoji: {
+    fontSize: 32,
+  },
+  celebrationTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: palette.clay,
+  },
+  celebrationSubtitle: {
+    ...textStyles.caption,
+    color: 'rgba(63,31,30,0.6)',
+    textAlign: 'center',
+  },
+  confettiArea: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confettiPiece: {
+    fontSize: 28,
+    position: 'absolute',
+  },
+  createContainer: {
     paddingHorizontal: spacing.lg,
   },
-  loadingMessage: {
+  createCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    gap: spacing.lg,
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 20 },
+    shadowRadius: 32,
+    elevation: 16,
+  },
+  createTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: palette.clay,
+  },
+  createSubtitle: {
     ...textStyles.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
+    color: 'rgba(63,31,30,0.6)',
+  },
+  loadingText: {
+    ...textStyles.caption,
+    color: palette.clay,
   },
 });

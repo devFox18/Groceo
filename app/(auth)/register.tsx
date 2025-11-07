@@ -1,12 +1,14 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+import { Feather } from '@expo/vector-icons';
 
 import { AuthScreen } from '@/components/AuthScreen';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
-import { colors, textStyles } from '@/lib/theme';
+import { colors, radius, textStyles } from '@/lib/theme';
 import { toast } from '@/utils/toast';
 
 const emailPattern = /\S+@\S+\.\S+/;
@@ -19,6 +21,8 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
@@ -27,13 +31,17 @@ export default function RegisterScreen() {
 
   const handleSubmit = async () => {
     if (!isSupabaseConfigured || !supabase) {
+      console.error('[Auth] Sign up blocked: Supabase credentials missing');
       toast('Supabase is not configured. Please add your credentials.');
       return;
     }
 
+    const trimmedEmail = email.trim();
+    console.log('[Auth] Attempting sign up', { email: trimmedEmail });
+
     const nextErrors: typeof errors = {};
 
-    if (!emailPattern.test(email.trim())) {
+    if (!emailPattern.test(trimmedEmail)) {
       nextErrors.email = 'Enter a valid email address.';
     }
     if (password.length < 6) {
@@ -45,21 +53,24 @@ export default function RegisterScreen() {
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
+      console.warn('[Auth] Sign up validation failed', nextErrors);
       return;
     }
 
     setLoading(true);
     const { error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: trimmedEmail,
       password,
     });
     setLoading(false);
 
     if (error) {
+      console.error('[Auth] Sign up failed', { email: trimmedEmail, error: error.message });
       toast('Failed to sign up. Please try again.');
       return;
     }
 
+    console.log('[Auth] Sign up successful', { email: trimmedEmail });
     toast('Account created! Welcome to Groceo.');
     router.replace('/(tabs)');
   };
@@ -71,16 +82,14 @@ export default function RegisterScreen() {
       learnLabel="How Groceo works"
       onPressLearn={() => router.replace('/onboarding')}
       footer={
-        <>
-          <Text style={styles.footerText}>
-            Already have an account?{' '}
-            <Text
-              style={styles.footerLink}
-              onPress={() => router.replace('/(auth)/login')}>
-              Log in
-            </Text>
-          </Text>
-        </>
+        <View style={styles.footerCta}>
+          <Text style={styles.footerText}>Already have an account?</Text>
+          <TouchableOpacity
+            style={styles.footerButton}
+            onPress={() => router.replace('/(auth)/login')}>
+            <Text style={styles.footerButtonText}>Log in</Text>
+          </TouchableOpacity>
+        </View>
       }>
       <TextField
         label="Email"
@@ -97,55 +106,79 @@ export default function RegisterScreen() {
       <TextField
         ref={passwordRef}
         label="Password"
-        secureTextEntry
+        secureTextEntry={!showPassword}
         value={password}
         onChangeText={setPassword}
         placeholder="Create a password"
         returnKeyType="next"
         onSubmitEditing={() => confirmRef.current?.focus()}
         error={errors.password}
+        rightAccessory={
+          <TouchableOpacity
+            onPress={() => setShowPassword(prev => !prev)}
+            accessibilityRole="button"
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
+            <Feather
+              name={showPassword ? 'eye-off' : 'eye'}
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        }
       />
       <TextField
         ref={confirmRef}
         label="Confirm password"
-        secureTextEntry
+        secureTextEntry={!showConfirm}
         value={confirmPassword}
         onChangeText={setConfirmPassword}
         placeholder="Repeat your password"
         error={errors.confirmPassword}
+        rightAccessory={
+          <TouchableOpacity
+            onPress={() => setShowConfirm(prev => !prev)}
+            accessibilityRole="button"
+            accessibilityLabel={showConfirm ? 'Hide password' : 'Show password'}>
+            <Feather
+              name={showConfirm ? 'eye-off' : 'eye'}
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        }
       />
-      <View style={styles.passwordHint}>
-        <View style={styles.dot} />
-        <Text style={styles.passwordHintText}>
-          Use at least 6 characters to keep your list secure.
-        </Text>
-      </View>
       <Button title="Sign up" onPress={handleSubmit} loading={loading} />
     </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  passwordHint: {
+  footerCta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
-  },
-  passwordHintText: {
-    ...textStyles.caption,
+    justifyContent: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
   },
   footerText: {
     ...textStyles.body,
-    color: colors.textSecondary,
+    color: colors.surface,
+    fontWeight: '500',
   },
-  footerLink: {
-    color: colors.primary,
+  footerButton: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  footerButtonText: {
+    ...textStyles.body,
     fontWeight: '700',
+    color: colors.primaryDark,
   },
 });

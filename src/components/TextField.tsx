@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { forwardRef } from 'react';
 import {
   StyleSheet,
@@ -12,22 +13,37 @@ import { colors, radius, spacing, textStyles } from '@/lib/theme';
 type Props = TextInputProps & {
   label: string;
   error?: string;
+  hint?: string;
+  rightAccessory?: ReactNode;
 };
 
-export const TextField = forwardRef<TextInput, Props>(({ label, error, style, ...rest }, ref) => {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        ref={ref}
-        style={[styles.input, style, error && styles.inputError]}
-        placeholderTextColor={colors.textSecondary}
-        {...rest}
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-    </View>
-  );
-});
+export const TextField = forwardRef<TextInput, Props>(
+  ({ label, error, hint, style, rightAccessory, ...rest }, ref) => {
+    const shouldShowHint = !error && hint;
+
+    return (
+      <View style={styles.container}>
+        <Text style={styles.label}>{label}</Text>
+        <View
+          style={[
+            styles.inputWrapper,
+            error && styles.inputWrapperError,
+            shouldShowHint && styles.inputWrapperHint,
+          ]}>
+          <TextInput
+            ref={ref}
+            style={[styles.input, style]}
+            placeholderTextColor={colors.textSecondary}
+            {...rest}
+          />
+          {rightAccessory ? <View style={styles.accessory}>{rightAccessory}</View> : null}
+        </View>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {shouldShowHint ? <Text style={styles.hint}>{hint}</Text> : null}
+      </View>
+    );
+  },
+);
 
 TextField.displayName = 'TextField';
 
@@ -39,21 +55,37 @@ const styles = StyleSheet.create({
     ...textStyles.body,
     fontWeight: '600',
   },
-  input: {
+  inputWrapper: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  inputWrapperError: {
+    borderColor: colors.error,
+  },
+  inputWrapperHint: {
+    borderColor: colors.primary,
+  },
+  input: {
+    flex: 1,
     paddingVertical: spacing.sm,
     fontSize: 16,
     color: colors.textPrimary,
-    backgroundColor: colors.surface,
   },
-  inputError: {
-    borderColor: colors.error,
+  accessory: {
+    marginLeft: spacing.sm,
   },
   error: {
     color: colors.error,
     fontSize: 13,
+  },
+  hint: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
 });

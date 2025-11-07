@@ -146,13 +146,18 @@ export default function ProfileScreen() {
   };
 
   const handleSignOut = async () => {
-    if (!supabase) {
+    if (!supabase || !isSupabaseConfigured) {
+      console.error('[Auth] Logout blocked: Supabase not available');
       return;
     }
+    console.log('[Auth] Attempting logout', { userId: session?.user.id });
     const { error } = await supabase.auth.signOut();
     if (error) {
+      console.error('[Auth] Logout failed', { userId: session?.user.id, error: error.message });
       toast('Failed to sign out. Please try again.');
+      return;
     }
+    console.log('[Auth] Logout successful', { userId: session?.user.id });
   };
 
   if (!session) {

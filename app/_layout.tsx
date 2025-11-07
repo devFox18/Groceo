@@ -1,11 +1,11 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { SUPABASE_WARNING_MESSAGE, isSupabaseConfigured } from '@/lib/supabase';
+import { SUPABASE_WARNING_MESSAGE, isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { colors, spacing } from '@/lib/theme';
 import { SessionProvider, useSession } from '@/state/sessionStore';
 
@@ -34,6 +34,38 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useSession();
   const segments = useSegments();
   const router = useRouter();
+  const bootLoggedRef = useRef(false);
+
+  useEffect(() => {
+    if (isLoading || bootLoggedRef.current) {
+      return;
+    }
+    bootLoggedRef.current = true;
+    console.log('✅ [App] Groceo boot complete', {
+      hasSession: Boolean(session),
+      platform: Platform.OS,
+    });
+
+    if (!isSupabaseConfigured || !supabase) {
+      console.info('[Supabase] Connectivity check skipped: client not configured.');
+      return;
+    }
+
+    console.log('🔍 [Supabase] Checking connectivity…');
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        console.error('[Supabase] Connectivity check failed', {
+          message: error.message,
+          code: error.code,
+        });
+        return;
+      }
+      console.log('📡 [Supabase] Connectivity confirmed', {
+        authenticated: Boolean(data.session),
+        userId: data.session?.user?.id ?? null,
+      });
+    });
+  }, [isLoading, session]);
 
   useEffect(() => {
     if (isLoading) return;

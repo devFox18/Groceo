@@ -1,12 +1,14 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+import { Feather } from '@expo/vector-icons';
 
 import { AuthScreen } from '@/components/AuthScreen';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
-import { colors, textStyles } from '@/lib/theme';
+import { colors, radius, textStyles } from '@/lib/theme';
 import { toast } from '@/utils/toast';
 
 const emailPattern = /\S+@\S+\.\S+/;
@@ -16,16 +18,21 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const handleSubmit = async () => {
     if (!isSupabaseConfigured || !supabase) {
+      console.error('[Auth] Login blocked: Supabase credentials missing');
       toast('Supabase is not configured. Please add your credentials.');
       return;
     }
 
+    const trimmedEmail = email.trim();
+    console.log('[Auth] Attempting login', { email: trimmedEmail });
+
     const nextErrors: typeof errors = {};
-    if (!emailPattern.test(email.trim())) {
+    if (!emailPattern.test(trimmedEmail)) {
       nextErrors.email = 'Enter a valid email address.';
     }
     if (password.length < 6) {
@@ -33,21 +40,24 @@ export default function LoginScreen() {
     }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
+      console.warn('[Auth] Login validation failed', nextErrors);
       return;
     }
 
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: trimmedEmail,
       password,
     });
     setLoading(false);
 
     if (error) {
+      console.warn('[Auth] Login failed', { email: trimmedEmail, error: error.message });
       toast('Failed to sign in. Please check your credentials.');
       return;
     }
 
+    console.log('[Auth] Login successful', { email: trimmedEmail });
     toast('Welcome back to Groceo!');
     router.replace('/(tabs)');
   };
@@ -59,16 +69,14 @@ export default function LoginScreen() {
       learnLabel="How Groceo works"
       onPressLearn={() => router.replace('/onboarding')}
       footer={
-        <>
-          <Text style={styles.footerText}>
-            Need an account?{' '}
-            <Text
-              style={styles.footerLink}
-              onPress={() => router.replace('/(auth)/register')}>
-              Create one
-            </Text>
-          </Text>
-        </>
+        <View style={styles.footerCta}>
+          <Text style={styles.footerText}>Need an account?</Text>
+          <TouchableOpacity
+            style={styles.footerButton}
+            onPress={() => router.replace('/(auth)/register')}>
+            <Text style={styles.footerButtonText}>Create one</Text>
+          </TouchableOpacity>
+        </View>
       }>
       <TextField
         label="Email"
@@ -82,21 +90,28 @@ export default function LoginScreen() {
       />
       <TextField
         label="Password"
-        secureTextEntry
+        secureTextEntry={!showPassword}
         value={password}
         onChangeText={setPassword}
         error={errors.password}
         placeholder="Your password"
+        rightAccessory={
+          <TouchableOpacity
+            onPress={() => setShowPassword(prev => !prev)}
+            accessibilityRole="button"
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
+            <Feather
+              name={showPassword ? 'eye-off' : 'eye'}
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        }
       />
-      <View style={styles.inlineActions}>
-        <Text
-          style={styles.inlineLink}
-          onPress={() => toast('Password reset will be available soon.')}>
-          Forgot password?
-        </Text>
-        <Text style={styles.inlineLink} onPress={() => toast('Magic link coming soon!')}>
-          Email me a magic link
-        </Text>
+      <View style={styles.helperRow}>
+        <TouchableOpacity onPress={() => toast('Password reset will be available soon.')}>
+          <Text style={styles.helperLink}>Forgot password?</Text>
+        </TouchableOpacity>
       </View>
       <Button title="Log in" onPress={handleSubmit} loading={loading} />
     </AuthScreen>
@@ -104,23 +119,43 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  inlineActions: {
+  helperRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 12,
   },
-  inlineLink: {
+  helperLink: {
     color: colors.primary,
     fontWeight: '600',
   },
+  footerCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
   footerText: {
     ...textStyles.body,
-    color: colors.textSecondary,
+    color: colors.surface,
+    fontWeight: '500',
   },
-  footerLink: {
-    color: colors.primary,
+  footerButton: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  footerButtonText: {
+    ...textStyles.body,
     fontWeight: '700',
+    color: colors.primaryDark,
   },
 });

@@ -25,7 +25,7 @@ export const SUPABASE_WARNING_MESSAGE =
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 if (!isSupabaseConfigured) {
-  console.warn(SUPABASE_WARNING_MESSAGE);
+  console.warn('[Supabase] Configuration incomplete. Using local offline experience only.');
 }
 
 export const supabase: SupabaseClient | null = isSupabaseConfigured
@@ -37,3 +37,12 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
       },
     })
   : null;
+
+if (isSupabaseConfigured) {
+  console.log('[Supabase] Client initialised', {
+    url: supabaseUrl?.replace(/\/$/, ''),
+    keyPresent: Boolean(supabaseAnonKey),
+  });
+} else {
+  console.info('[Supabase] Skipping client initialisation');
+}
