@@ -151,6 +151,7 @@ export default function HomeScreen() {
   const [pendingUpdates, setPendingUpdates] = useState<Record<string, boolean>>({});
   const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(() => new Set());
   const itemInputRef = useRef<TextInput>(null);
+  const [hasManuallyFocused, setHasManuallyFocused] = useState(false);
   const celebrationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { items, isLoading: itemsLoading, error: realtimeError } = useRealtimeList(
@@ -225,6 +226,10 @@ export default function HomeScreen() {
     () => displayItems.filter((item) => item.checked),
     [displayItems],
   );
+  const totalItems = displayItems.length;
+  const remainingCount = activeItems.length;
+  const completionRatio = totalItems === 0 ? 0 : completedItems.length / totalItems;
+
 
   const floatingOpacity = useSharedValue(0);
   const floatingTranslateY = useSharedValue(0);
@@ -560,6 +565,7 @@ export default function HomeScreen() {
       setItemName('');
       setItemQuantity(1);
       itemInputRef.current?.clear();
+      setHasManuallyFocused(false);
     }
   }, [addItem, itemName, itemQuantity]);
 
@@ -569,10 +575,12 @@ export default function HomeScreen() {
       if (success) {
         setItemName('');
         setItemQuantity(1);
-        itemInputRef.current?.focus();
+        if (hasManuallyFocused) {
+          itemInputRef.current?.blur();
+        }
       }
     },
-    [addItem],
+    [addItem, hasManuallyFocused],
   );
 
   const handleToggleItem = useCallback(
@@ -728,7 +736,7 @@ export default function HomeScreen() {
   }, []);
 
   const renderItem = useCallback(
-    ({ item }: { item: GroceryItem }) => (
+    ({ item }: { item: DisplayItem }) => (
       <GroceryListItem
         item={item}
         onToggle={() => handleToggleItem(item)}
@@ -818,7 +826,7 @@ export default function HomeScreen() {
           <View style={styles.container}>
             <FlatList
               data={activeItems}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item) => item.id ?? item.tempId ?? item.name}
               renderItem={renderItem}
               ListHeaderComponent={
                 <View style={styles.headerArea}>
@@ -854,12 +862,50 @@ export default function HomeScreen() {
                     </View>
                   </View>
 
+                  <LinearGradient
+                    colors={['#FFFFFF', 'rgba(255,255,255,0.82)']}
+                    style={styles.heroCard}>
+                    <View style={styles.heroCardCopy}>
+                      <Text style={styles.heroTitle}>Huishouden {household.name}</Text>
+                      <Text style={styles.heroSubtitle}>
+                        {remainingCount === 0
+                          ? 'Alles is binnen, ga gerust relaxen.'
+                          : `Nog ${remainingCount} ${remainingCount === 1 ? 'item' : 'items'} op de lijst`}
+                      </Text>
+                      <View style={styles.heroStatsRow}>
+                        <View style={styles.heroStatChip}>
+                          <Feather name="check-circle" size={14} color={palette.deepClay} />
+                          <Text style={styles.heroStatText}>{completedItems.length} afgerond</Text>
+                        </View>
+                        <View style={styles.heroStatChip}>
+                          <Feather name="clock" size={14} color={palette.deepClay} />
+                          <Text style={styles.heroStatText}>
+                            {totalItems === 0 ? '0%' : `${Math.round(completionRatio * 100)}%`} klaar
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.heroProgress}>
+                      <View style={styles.heroProgressTrack}>
+                        <View
+                          style={[
+                            styles.heroProgressFill,
+                            { width: `${Math.min(100, completionRatio * 100)}%` },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.heroProgressLabel}>
+                        {completedItems.length}/{totalItems || 1}
+                      </Text>
+                    </View>
+                  </LinearGradient>
+
                   <View style={styles.addCard}>
                     <LinearGradient
                       colors={['rgba(255,255,255,0.95)', palette.cream]}
                       style={styles.addCardGradient}>
                       <View style={styles.addRow}>
-                        <Ionicons name="md-search" size={20} color={palette.deepClay} />
+                        <Ionicons name="search" size={20} color={palette.deepClay} />
                         <TextInput
                           ref={itemInputRef}
                           value={itemName}
@@ -868,6 +914,7 @@ export default function HomeScreen() {
                           placeholderTextColor="rgba(63,31,30,0.45)"
                           style={styles.input}
                           returnKeyType="done"
+                          onFocus={() => setHasManuallyFocused(true)}
                           onSubmitEditing={handleAddItem}
                         />
                         <TouchableOpacity
@@ -946,6 +993,43 @@ export default function HomeScreen() {
                       </Text>
                     </View>
                   ) : null}
+
+                  <View style={styles.actionDock}>
+                    <TouchableOpacity
+                      style={[
+                        styles.actionButton,
+                        styles.clearButton,
+                        (clearingAll || displayItems.length === 0) && styles.actionButtonDisabled,
+                      ]}
+                      onPress={handleClearAll}
+                      disabled={clearingAll || displayItems.length === 0}>
+                      {clearingAll ? (
+                        <ActivityIndicator size="small" color={palette.deepClay} />
+                      ) : (
+                        <>
+                          <Feather name="trash-2" size={16} color={palette.deepClay} />
+                          <Text style={styles.clearText}>Lijst leegmaken</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.sortButton]}
+                      onPress={() => toast('Sorteren en filteren komt er binnenkort bij!')}>
+                      <Feather name="sliders" size={18} color={palette.deepClay} />
+                      <Text style={styles.sortText}>Sorteren</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              }
+              ListEmptyComponent={
+                <View style={styles.emptyState}>
+                  <View style={styles.emptyIconBubble}>
+                    <Text style={styles.emptyIcon}>🛒</Text>
+                  </View>
+                  <Text style={styles.emptyTitle}>Nog niets op de lijst</Text>
+                  <Text style={styles.emptySubtitle}>
+                    Voeg je vaste favorieten toe of kies een suggestie hierboven.
+                  </Text>
                 </View>
               }
               ListFooterComponent={
@@ -974,36 +1058,6 @@ export default function HomeScreen() {
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
             />
-
-            <Animated.View entering={FadeInUp.duration(220)} style={styles.bottomBar}>
-              <TouchableOpacity
-                style={styles.shareButton}
-                onPress={() => toast('Lijst gedeeld met je huishouden!')}>
-                <Feather name="users" size={18} color={palette.deepClay} />
-                <Text style={styles.shareText}>Deel lijst</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.clearButton,
-                  (clearingAll || displayItems.length === 0) && styles.clearButtonDisabled,
-                ]}
-                onPress={handleClearAll}
-                disabled={clearingAll || displayItems.length === 0}>
-                {clearingAll ? (
-                  <ActivityIndicator size="small" color={palette.deepClay} />
-                ) : (
-                  <>
-                    <Feather name="trash-2" size={16} color={palette.deepClay} />
-                    <Text style={styles.clearText}>Lijst leegmaken</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.sortButton}
-                onPress={() => toast('Sorteren en filteren komt er binnenkort bij!')}>
-                <Feather name="sliders" size={18} color={palette.deepClay} />
-              </TouchableOpacity>
-            </Animated.View>
 
             {floatingIcon ? (
               <Animated.View style={[styles.floatingIcon, floatingStyle]}>
@@ -1210,6 +1264,74 @@ const styles = StyleSheet.create({
     color: palette.clay,
     fontWeight: '600',
   },
+  heroCard: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  heroCardCopy: {
+    flex: 1,
+    gap: spacing.xs * 0.6,
+  },
+  heroTitle: {
+    ...textStyles.title,
+    fontSize: 20,
+    color: palette.deepClay,
+  },
+  heroSubtitle: {
+    ...textStyles.body,
+    color: 'rgba(47,31,30,0.65)',
+  },
+  heroStatsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  heroStatChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs * 0.5,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs * 1.2,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(63,31,30,0.08)',
+  },
+  heroStatText: {
+    ...textStyles.caption,
+    fontWeight: '600',
+    color: palette.deepClay,
+  },
+  heroProgress: {
+    width: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  heroProgressTrack: {
+    width: '100%',
+    height: 8,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(63,31,30,0.12)',
+    overflow: 'hidden',
+  },
+  heroProgressFill: {
+    height: '100%',
+    borderRadius: radius.pill,
+    backgroundColor: palette.coral,
+  },
+  heroProgressLabel: {
+    ...textStyles.caption,
+    fontWeight: '600',
+    color: palette.deepClay,
+  },
   addCard: {
     borderRadius: radius.lg,
     padding: 1,
@@ -1355,6 +1477,28 @@ const styles = StyleSheet.create({
     ...textStyles.caption,
     color: palette.clay,
     fontWeight: '600',
+  },
+  actionDock: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(63,31,30,0.08)',
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
+  },
+  sortText: {
+    fontWeight: '600',
+    color: palette.deepClay,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -1518,48 +1662,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#EB5757',
   },
   bottomSpacer: {
-    height: spacing.xl * 2,
-  },
-  bottomBar: {
-    position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
-    bottom: spacing.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    shadowColor: '#000000',
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 16 },
-    shadowRadius: 28,
-    elevation: 14,
-  },
-  shareButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: palette.amber,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-  },
-  shareText: {
-    fontWeight: '700',
-    color: palette.deepClay,
+    height: spacing.xl,
   },
   clearButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: 'rgba(63,31,30,0.08)',
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    backgroundColor: 'rgba(247,157,101,0.18)',
   },
   clearButtonDisabled: {
     opacity: 0.6,
@@ -1569,12 +1682,15 @@ const styles = StyleSheet.create({
     color: palette.deepClay,
   },
   sortButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.pill,
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(63,31,30,0.12)',
+    gap: spacing.xs,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: 'rgba(61,220,132,0.18)',
   },
   floatingIcon: {
     position: 'absolute',
@@ -1629,6 +1745,32 @@ const styles = StyleSheet.create({
   confettiPiece: {
     fontSize: 28,
     position: 'absolute',
+  },
+  emptyState: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xl,
+  },
+  emptyIconBubble: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(63,31,30,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyIcon: {
+    fontSize: 32,
+  },
+  emptyTitle: {
+    ...textStyles.subtitle,
+    color: palette.deepClay,
+  },
+  emptySubtitle: {
+    ...textStyles.caption,
+    color: 'rgba(63,31,30,0.7)',
+    textAlign: 'center',
+    paddingHorizontal: spacing.lg,
   },
   createContainer: {
     paddingHorizontal: spacing.lg,
