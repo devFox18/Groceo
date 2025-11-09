@@ -15,7 +15,14 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size }) => <Feather name="list" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <Feather name="home" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="groceries"
+        options={{
+          title: 'Boodschappen',
+          tabBarIcon: ({ color, size }) => <Feather name="shopping-bag" color={color} size={size} />,
         }}
       />
       <Tabs.Screen

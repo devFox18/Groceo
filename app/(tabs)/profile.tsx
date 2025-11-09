@@ -21,6 +21,8 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [newHouseholdName, setNewHouseholdName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [renaming, setRenaming] = useState(false);
 
   const loadHouseholds = useCallback(async () => {
     if (!session) {
@@ -62,6 +64,11 @@ export default function ProfileScreen() {
   useEffect(() => {
     void loadHouseholds();
   }, [loadHouseholds]);
+
+  useEffect(() => {
+    const active = households.find((household) => household.id === activeHouseholdId);
+    setRenameValue(active?.name ?? '');
+  }, [households, activeHouseholdId]);
 
   const handleSelectHousehold = (id: string) => {
     setActiveHouseholdId(id);
@@ -145,6 +152,57 @@ export default function ProfileScreen() {
     toast('Huishouden is aangemaakt.');
   };
 
+  const handleRenameHousehold = async () => {
+    if (!session || !activeHouseholdId) {
+      toast('Selecteer eerst een huishouden.');
+      return;
+    }
+    if (!isSupabaseConfigured || !supabase) {
+      toast('Supabase is niet geconfigureerd. Voeg je gegevens toe.');
+      return;
+    }
+    const trimmedName = renameValue.trim();
+    if (!trimmedName) {
+      toast('Naam van het huishouden is verplicht.');
+      return;
+    }
+
+    setRenaming(true);
+    console.log('[Profile] Updating household name', {
+      householdId: activeHouseholdId,
+      userId: session.user.id,
+      nextName: trimmedName,
+    });
+
+    const { error } = await supabase
+      .from('households')
+      .update({ name: trimmedName })
+      .eq('id', activeHouseholdId);
+
+    if (error) {
+      logSupabaseError('households.update', error, {
+        screen: 'Profile',
+        userId: session.user.id,
+        householdId: activeHouseholdId,
+      });
+      toast('Naam bijwerken is niet gelukt.');
+      setRenaming(false);
+      return;
+    }
+
+    setHouseholds((prev) =>
+      prev.map((household) =>
+        household.id === activeHouseholdId ? { ...household, name: trimmedName } : household,
+      ),
+    );
+    console.log('[Profile] Household name updated successfully', {
+      householdId: activeHouseholdId,
+      nextName: trimmedName,
+    });
+    toast('Huishouden bijgewerkt.');
+    setRenaming(false);
+  };
+
   const handleSignOut = async () => {
     if (!supabase || !isSupabaseConfigured) {
       console.error('[Auth] Logout blocked: Supabase not available');
@@ -226,6 +284,22 @@ export default function ProfileScreen() {
             disabled={creating}
           />
         </View>
+        {activeHouseholdId && households.length > 0 ? (
+          <View style={styles.renameForm}>
+            <TextField
+              label="Naam aanpassen"
+              value={renameValue}
+              onChangeText={setRenameValue}
+              placeholder="Bijv. Familie Jansen"
+            />
+            <Button
+              title="Opslaan"
+              onPress={handleRenameHousehold}
+              loading={renaming}
+              disabled={renaming || !renameValue.trim()}
+            />
+          </View>
+        ) : null}
       </View>
 
       <Button title="Uitloggen" variant="ghost" onPress={handleSignOut} />
@@ -308,6 +382,13 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   newHouseholdForm: {
+    gap: spacing.sm,
+  },
+  renameForm: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
     gap: spacing.sm,
   },
 });
