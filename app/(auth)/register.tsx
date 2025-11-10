@@ -22,9 +22,11 @@ type RoleOptionProps = {
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const confirmRef = useRef<TextInput>(null);
   const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,6 +37,7 @@ export default function RegisterScreen() {
   const [inviteCode, setInviteCode] = useState('');
   const [errors, setErrors] = useState<{
     email?: string;
+    fullName?: string;
     password?: string;
     confirmPassword?: string;
     householdName?: string;
@@ -53,6 +56,11 @@ export default function RegisterScreen() {
 
     const nextErrors: typeof errors = {};
 
+    if (!fullName.trim()) {
+      nextErrors.fullName = 'Vul je naam in.';
+    } else if (fullName.trim().length < 2) {
+      nextErrors.fullName = 'Naam is te kort.';
+    }
     if (!emailPattern.test(trimmedEmail)) {
       nextErrors.email = 'Vul een geldig e-mailadres in.';
     }
@@ -79,6 +87,11 @@ export default function RegisterScreen() {
     const { error } = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
+      options: {
+        data: {
+          full_name: fullName.trim(),
+        },
+      },
     });
     setLoading(false);
 
@@ -110,6 +123,16 @@ export default function RegisterScreen() {
         </View>
       }>
       <TextField
+        label="Naam"
+        value={fullName}
+        onChangeText={setFullName}
+        placeholder="Bijv. Sara Janssen"
+        returnKeyType="next"
+        onSubmitEditing={() => emailRef.current?.focus()}
+        error={errors.fullName}
+      />
+      <TextField
+        ref={emailRef}
         label="E-mail"
         keyboardType="email-address"
         autoCapitalize="none"

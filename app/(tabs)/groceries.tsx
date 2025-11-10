@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
@@ -70,27 +71,15 @@ type DisplayItem = GroceryItem & {
   resolvedId?: string;
 };
 
-type HistoryEntry = {
-  id: string;
-  action: 'added' | 'deleted';
-  name: string;
-  quantity: number;
-  user: string;
-  timestamp: number;
-  source?: 'local' | 'remote';
+type HistoryAction = 'added' | 'deleted' | 'cleared';
+
+type HistoryEventPayload = {
+  action: HistoryAction;
+  name?: string;
+  quantity?: number;
 };
 
-type HistoryRecord = {
-  id: string;
-  action: 'added' | 'deleted';
-  item_name: string;
-  quantity: number;
-  user_email: string | null;
-  created_at: string;
-};
-
-const HISTORY_LIMIT = 40;
-const HISTORY_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const CLEAR_EVENT_LABEL = 'Lijst geleegd';
 
 type FloatingIcon = {
   emoji: string;
@@ -154,6 +143,7 @@ function iconForItem(name: string) {
 }
 
 export default function GroceriesScreen() {
+  const router = useRouter();
   const { session } = useSession();
   const { activeHouseholdId, setActiveHouseholdId } = useActiveHousehold();
   const [loadingContext, setLoadingContext] = useState(true);
@@ -166,8 +156,6 @@ export default function GroceriesScreen() {
   const [addingItem, setAddingItem] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
-  const [historyVisible, setHistoryVisible] = useState(false);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [floatingIcon, setFloatingIcon] = useState<FloatingIcon | null>(null);
   const [celebrate, setCelebrate] = useState(false);
   const [pendingAdds, setPendingAdds] = useState<PendingAdd[]>([]);
@@ -261,56 +249,6 @@ export default function GroceriesScreen() {
     }
     return null;
   }, [activeItems.length]);
-
-  const fetchHistory = useCallback(async () => {
-    if (!list || !isSupabaseConfigured || !supabase) {
-      return;
-    }
-    const retentionDate = new Date(Date.now() - HISTORY_RETENTION_MS).toISOString();
-    const { error: cleanupError } = await supabase
-      .from('list_history')
-      .delete()
-      .eq('list_id', list.id)
-      .lt('created_at', retentionDate);
-    if (cleanupError) {
-      console.error('[Groceries] Unable to cleanup history', cleanupError);
-    }
-
-    const { data, error } = await supabase
-      .from('list_history')
-      .select('id, action, item_name, quantity, user_email, created_at')
-      .eq('list_id', list.id)
-      .order('created_at', { ascending: false })
-      .limit(HISTORY_LIMIT);
-
-    if (error) {
-      console.error('[Groceries] Unable to load history', error);
-      return;
-    }
-    const mapped = (data as HistoryRecord[]).map((record) => ({
-      id: record.id,
-      action: record.action,
-      name: record.item_name,
-      quantity: record.quantity,
-      user: record.user_email ?? 'Onbekend',
-      timestamp: Date.parse(record.created_at),
-      source: 'remote' as const,
-    }));
-    setHistory((prev) => {
-      const localOnly = prev.filter((entry) => entry.source === 'local');
-      const combined = pruneHistory([...localOnly, ...mapped]);
-      const seen = new Set<string>();
-      const deduped: HistoryEntry[] = [];
-      for (const entry of combined) {
-        if (seen.has(entry.id)) continue;
-        seen.add(entry.id);
-        deduped.push(entry);
-        if (deduped.length >= HISTORY_LIMIT) break;
-      }
-      return deduped;
-    });
-  }, [list?.id, pruneHistory]);
-
 
   const floatingOpacity = useSharedValue(0);
   const floatingTranslateY = useSharedValue(0);
@@ -486,10 +424,6 @@ export default function GroceriesScreen() {
     void loadContext();
   }, [loadContext]);
 
-  useEffect(() => {
-    void fetchHistory();
-  }, [fetchHistory]);
-
   const handleCreateHousehold = useCallback(async () => {
     if (!session) return;
     if (!isSupabaseConfigured || !supabase) {
@@ -571,51 +505,39 @@ export default function GroceriesScreen() {
     toast('Huishouden is aangemaakt.');
   }, [householdName, session, setActiveHouseholdId]);
 
-  const pruneHistory = useCallback(
-    (entries: HistoryEntry[]) =>
-      entries.filter((entry) => Date.now() - entry.timestamp <= HISTORY_RETENTION_MS),
-    [],
-  );
-
-  const appendHistoryEntry = useCallback((entry: HistoryEntry) => {
-    setHistory((prev) => {
-      const next = pruneHistory([entry, ...prev]);
-      if (next.length > HISTORY_LIMIT) {
-        return next.slice(0, HISTORY_LIMIT);
-      }
-      return next;
-    });
-  }, [pruneHistory]);
-
-  const persistHistoryEvent = useCallback(
-    async (entry: Omit<HistoryEntry, 'id' | 'timestamp' | 'user' | 'source'>) => {
-      const userLabel = session?.user?.email ?? 'Onbekend';
-      const localEntry: HistoryEntry = {
-        id: `${entry.action}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        timestamp: Date.now(),
-        user: userLabel,
-        source: 'local',
-        ...entry,
-      };
-      appendHistoryEntry(localEntry);
-
-      if (!list || !isSupabaseConfigured || !supabase) {
+  const recordHistoryEvent = useCallback(
+    async ({ action, name, quantity }: HistoryEventPayload) => {
+      if (!list || !session) {
         return;
       }
-
+      if (!isSupabaseConfigured || !supabase) {
+        return;
+      }
+      const metadataName = (session.user.user_metadata?.full_name as string | undefined)?.trim();
+      const userLabel = metadataName || session.user.email?.split('@')[0] || 'Onbekend';
+      const dbAction: Exclude<HistoryAction, 'cleared'> = action === 'cleared' ? 'deleted' : action;
+      const safeName =
+        (typeof name === 'string' && name.trim().length > 0
+          ? name.trim()
+          : action === 'cleared'
+            ? CLEAR_EVENT_LABEL
+            : 'Onbekend item');
+      const safeQuantity =
+        typeof quantity === 'number' && Number.isFinite(quantity) && quantity >= 0
+          ? quantity
+          : 0;
       const { error } = await supabase.from('list_history').insert({
         list_id: list.id,
-        action: entry.action,
-        item_name: entry.name,
-        quantity: entry.quantity,
+        action: dbAction,
+        item_name: safeName,
+        quantity: safeQuantity,
         user_email: userLabel,
       });
-
       if (error) {
         console.error('[Groceries] Failed to persist history event', error);
       }
     },
-    [appendHistoryEntry, list?.id, session?.user?.email],
+    [list?.id, session],
   );
 
   const addItem = useCallback(
@@ -679,13 +601,13 @@ export default function GroceriesScreen() {
             item.tempId === tempId ? { ...item, id: data.id, resolvedId: data.id } : item,
           ),
         );
-        void persistHistoryEvent({ action: 'added', name: trimmedName, quantity: safeQuantity });
+        void recordHistoryEvent({ action: 'added', name: trimmedName, quantity: safeQuantity });
         return true;
       } finally {
         setAddingItem(false);
       }
     },
-    [addingItem, list?.id, persistHistoryEvent, session?.user.id, triggerFloatingEmoji],
+    [addingItem, list?.id, recordHistoryEvent, session?.user.id, triggerFloatingEmoji],
   );
 
   const handleAddItem = useCallback(async () => {
@@ -800,10 +722,10 @@ export default function GroceriesScreen() {
         return;
       }
 
-      void persistHistoryEvent({ action: 'deleted', name: item.name, quantity: item.quantity });
+      void recordHistoryEvent({ action: 'deleted', name: item.name, quantity: item.quantity });
       console.log('[Groceries] Item removed', { itemId: targetId, name: item.name });
     },
-    [persistHistoryEvent],
+    [recordHistoryEvent],
   );
 
   const handleClearAll = useCallback(async () => {
@@ -818,6 +740,7 @@ export default function GroceriesScreen() {
       console.info('[Groceries] Clear list skipped: list already empty');
       return;
     }
+    const clearedCount = displayItems.length;
 
     setPendingAdds([]);
     setPendingUpdates({});
@@ -842,11 +765,16 @@ export default function GroceriesScreen() {
         return;
       }
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void recordHistoryEvent({
+        action: 'cleared',
+        name: CLEAR_EVENT_LABEL,
+        quantity: clearedCount,
+      });
       console.log('[Groceries] List cleared', { listId: list.id });
     } finally {
       setClearingAll(false);
     }
-  }, [displayItems, list?.id]);
+  }, [displayItems, list?.id, recordHistoryEvent]);
 
   const incrementQuantity = useCallback(() => {
     setItemQuantity((prev) => {
@@ -975,17 +903,25 @@ export default function GroceriesScreen() {
                       <Text style={styles.appTitle}>Boodschappen</Text>
                       <Text style={styles.appSubtitle}>Samen bijhouden wat er nog moet</Text>
                     </View>
-                    <TouchableOpacity
-                      style={styles.avatarBadge}
-                      onPress={() => toast('Binnenkort kun je van huishouden wisselen!')}>
-                      <LinearGradient
-                        colors={[palette.coral, palette.amber]}
-                        style={styles.avatarGradient}>
-                        <Text style={styles.avatarInitial}>
-                          {session?.user.email?.[0]?.toUpperCase() ?? 'U'}
-                        </Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                    <View style={styles.headerActions}>
+                      <TouchableOpacity
+                        style={styles.historyShortcut}
+                        onPress={() => router.push('/groceries-history')}>
+                        <Feather name="clock" size={16} color={palette.deepClay} />
+                        <Text style={styles.historyShortcutText}>Historie</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.avatarBadge}
+                        onPress={() => toast('Binnenkort kun je van huishouden wisselen!')}>
+                        <LinearGradient
+                          colors={[palette.coral, palette.amber]}
+                          style={styles.avatarGradient}>
+                          <Text style={styles.avatarInitial}>
+                            {session?.user.email?.[0]?.toUpperCase() ?? 'U'}
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   <View style={styles.summaryRow}>
@@ -1076,12 +1012,12 @@ export default function GroceriesScreen() {
                     </View>
                   ) : null}
 
-                    <TouchableOpacity
-                      style={[
-                        styles.actionButton,
-                        styles.clearButton,
-                        (clearingAll || displayItems.length === 0) && styles.actionButtonDisabled,
-                      ]}
+                  <TouchableOpacity
+                    style={[
+                      styles.actionButton,
+                      styles.clearButton,
+                      (clearingAll || displayItems.length === 0) && styles.actionButtonDisabled,
+                    ]}
                     onPress={handleClearAll}
                     disabled={clearingAll || displayItems.length === 0}>
                     {clearingAll ? (
@@ -1093,41 +1029,6 @@ export default function GroceriesScreen() {
                       </>
                     )}
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.historyButton]}
-                    onPress={() => setHistoryVisible((prev) => !prev)}>
-                    <Feather name="clock" size={16} color={palette.deepClay} />
-                    <Text style={styles.clearText}>
-                      {historyVisible ? 'Verberg historie' : 'Toon historie'}
-                    </Text>
-                  </TouchableOpacity>
-                  {historyVisible ? (
-                    <View style={styles.historyContainer}>
-                      {history.length === 0 ? (
-                        <Text style={styles.historyEmpty}>Nog geen activiteit.</Text>
-                      ) : (
-                        history.slice(0, 10).map((entry) => (
-                          <View key={entry.id} style={styles.historyRow}>
-                            <View style={styles.historyDot} />
-                            <View style={styles.historyCopy}>
-                              <Text style={styles.historyText}>
-                                {entry.action === 'added' ? 'Toegevoegd' : 'Verwijderd'}:{' '}
-                                <Text style={styles.historyHighlight}>{entry.name}</Text>{' '}
-                                ({entry.quantity}x)
-                              </Text>
-                              <Text style={styles.historyMeta}>
-                                door {entry.user} •{' '}
-                                {new Date(entry.timestamp).toLocaleTimeString('nl-NL', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </Text>
-                            </View>
-                          </View>
-                        ))
-                      )}
-                    </View>
-                  ) : null}
                 </View>
               }
               ListEmptyComponent={renderListEmpty}
@@ -1321,6 +1222,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   appTitle: {
     fontSize: 32,
     fontWeight: '700',
@@ -1340,6 +1246,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  historyShortcut: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(63,31,30,0.08)',
+  },
+  historyShortcutText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: palette.deepClay,
   },
   avatarInitial: {
     fontSize: 18,
@@ -1449,47 +1369,6 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontWeight: '700',
     color: palette.deepClay,
-  },
-  historyButton: {
-    marginTop: spacing.sm,
-  },
-  historyContainer: {
-    marginTop: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: 'rgba(63,31,30,0.04)',
-    gap: spacing.sm,
-  },
-  historyRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    alignItems: 'flex-start',
-  },
-  historyDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginTop: spacing.xs,
-    backgroundColor: palette.coral,
-  },
-  historyCopy: {
-    flex: 1,
-    gap: spacing.xs / 2,
-  },
-  historyText: {
-    fontSize: 14,
-    color: palette.clay,
-  },
-  historyHighlight: {
-    fontWeight: '600',
-  },
-  historyMeta: {
-    fontSize: 12,
-    color: 'rgba(63,31,30,0.6)',
-  },
-  historyEmpty: {
-    fontSize: 14,
-    color: 'rgba(63,31,30,0.6)',
   },
   simpleHintRow: {
     flexDirection: 'row',

@@ -58,7 +58,6 @@ export default function LoginScreen() {
     }
 
     console.log('[Auth] Login successful', { email: trimmedEmail });
-    toast('Welkom terug bij Groceo!');
     router.replace('/(tabs)');
   };
 

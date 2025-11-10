@@ -9,6 +9,8 @@ import { SUPABASE_WARNING_MESSAGE, isSupabaseConfigured, supabase } from '@/lib/
 import { colors, spacing } from '@/lib/theme';
 import { SessionProvider, useSession } from '@/state/sessionStore';
 
+const AUTHENTICATED_STANDALONE_ROUTES = new Set(['groceries-history']);
+
 function SupabaseBanner() {
   if (isSupabaseConfigured) {
     return null;
@@ -73,6 +75,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const inAuthStack = firstSegment === '(auth)';
     const isOnboarding = firstSegment === 'onboarding';
     const inTabs = firstSegment === '(tabs)';
+    const isStandaloneAllowed = firstSegment
+      ? AUTHENTICATED_STANDALONE_ROUTES.has(firstSegment)
+      : false;
 
     if (!session) {
       if (!inAuthStack && !isOnboarding) {
@@ -81,7 +86,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (!inTabs) {
+    if (!inTabs && !isStandaloneAllowed) {
       router.replace('/(tabs)');
     }
   }, [isLoading, session, segments, router]);
