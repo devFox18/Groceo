@@ -5,6 +5,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -86,6 +87,13 @@ type FloatingIcon = {
   id: string;
 };
 
+type QuickAddSuggestion = {
+  label: string;
+  emoji: string;
+};
+
+type ListFilter = 'all' | 'open' | 'done';
+
 const palette = {
   amber: '#F7B267',
   coral: '#F79D65',
@@ -98,13 +106,19 @@ const palette = {
   border: 'rgba(255,255,255,0.24)',
 };
 
-const QUICK_ADD_SUGGESTIONS = [
+const FAVORITE_QUICK_ADD: QuickAddSuggestion[] = [
   { label: 'Kaas', emoji: '🧀' },
   { label: 'Melk', emoji: '🥛' },
   { label: 'Vers brood', emoji: '🍞' },
   { label: 'Broccoli', emoji: '🥦' },
   { label: 'Aardbeien', emoji: '🍓' },
-] as const;
+];
+
+const LIST_FILTERS: { key: ListFilter; label: string }[] = [
+  { key: 'all', label: 'Alles' },
+  { key: 'open', label: 'Open' },
+  { key: 'done', label: 'Afgerond' },
+];
 
 const ICON_MAP: Record<string, string> = {
   cheese: '🧀',
@@ -142,6 +156,13 @@ function iconForItem(name: string) {
   return match ? ICON_MAP[match] : '🛒';
 }
 
+function buildSuggestion(label: string): QuickAddSuggestion {
+  return {
+    label,
+    emoji: iconForItem(label),
+  };
+}
+
 export default function GroceriesScreen() {
   const router = useRouter();
   const { session } = useSession();
@@ -155,17 +176,20 @@ export default function GroceriesScreen() {
   const [itemQuantity, setItemQuantity] = useState(1);
   const [addingItem, setAddingItem] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(false);
   const [floatingIcon, setFloatingIcon] = useState<FloatingIcon | null>(null);
   const [celebrate, setCelebrate] = useState(false);
   const [pendingAdds, setPendingAdds] = useState<PendingAdd[]>([]);
   const [pendingUpdates, setPendingUpdates] = useState<Record<string, boolean>>({});
   const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(() => new Set());
+  const [recentQuickAdds, setRecentQuickAdds] = useState<QuickAddSuggestion[]>([]);
+  const [quickAddTab, setQuickAddTab] = useState<'favorieten' | 'recent'>('favorieten');
+  const [listFilter, setListFilter] = useState<ListFilter>('all');
+  const [refreshing, setRefreshing] = useState(false);
   const itemInputRef = useRef<TextInput>(null);
   const [hasManuallyFocused, setHasManuallyFocused] = useState(false);
   const celebrationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { items, isLoading: itemsLoading, error: realtimeError } = useRealtimeList(
+  const { items, isLoading: itemsLoading, error: realtimeError, refetch } = useRealtimeList(
     list?.id ?? null,
   );
 
@@ -182,6 +206,87 @@ export default function GroceriesScreen() {
       ),
     );
   }, [items]);
+
+  useEffect(() => {
+    if (!list?.id || !isSupabaseConfigured || !supabase) {
+      setRecentQuickAdds([]);
+      return;
+    }
+    let isMounted = true;
+    const loadRecentAdditions = async () => {
+      const { data, error } = await supabase
+        .from('list_history')
+        .select('item_name')
+        .eq('list_id', list.id)
+        .eq('action', 'added')
+        .order('created_at', { ascending: false })
+        .limit(4);
+      if (error) {
+        logSupabaseError('list_history.recent', error, {
+          screen: 'Groceries',
+          listId: list.id,
+        });
+        return;
+      }
+      const suggestions =
+        data
+          ?.map((row) => row.item_name?.trim())
+          .filter((name): name is string => Boolean(name && name.length > 0))
+          .map((label) => buildSuggestion(label))
+          .reduce<QuickAddSuggestion[]>((acc, suggestion) => {
+            if (acc.find((existing) => existing.label.toLowerCase() === suggestion.label.toLowerCase())) {
+              return acc;
+            }
+            return [...acc, suggestion];
+          }, []) ?? [];
+      if (isMounted) {
+        setRecentQuickAdds(suggestions.slice(0, 8));
+      }
+    };
+    void loadRecentAdditions();
+    return () => {
+      isMounted = false;
+    };
+  }, [list?.id, supabase, isSupabaseConfigured]);
+
+  useEffect(() => {
+    if (!list?.id || !isSupabaseConfigured || !supabase) {
+      return;
+    }
+    const channel = supabase
+      .channel(`list-history-recent-${list.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'list_history',
+          filter: `list_id=eq.${list.id}`,
+        },
+        (payload) => {
+          const insertedAction = (payload.new?.action as string | undefined) ?? '';
+          if (insertedAction !== 'added') {
+            return;
+          }
+          const name = (payload.new?.item_name as string | undefined)?.trim();
+          if (!name) {
+            return;
+          }
+          const suggestion = buildSuggestion(name);
+          setRecentQuickAdds((prev) => {
+            const filtered = prev.filter(
+              (existing) => existing.label.toLowerCase() !== suggestion.label.toLowerCase(),
+            );
+            return [suggestion, ...filtered].slice(0, 8);
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [list?.id, supabase, isSupabaseConfigured]);
 
   useEffect(() => {
     setPendingUpdates((prev) => {
@@ -240,15 +345,16 @@ export default function GroceriesScreen() {
   const totalItems = displayItems.length;
   const remainingCount = activeItems.length;
   const completionRatio = totalItems === 0 ? 0 : completedItems.length / totalItems;
-  const emptyStateCopy = useMemo(() => {
-    if (activeItems.length === 0) {
-      return {
-        title: 'Nog niets op de lijst',
-        subtitle: 'Typ een product en druk op toevoegen.',
-      };
+  const filteredItems = useMemo(() => {
+    if (listFilter === 'open') {
+      return displayItems.filter((item) => !item.checked);
     }
-    return null;
-  }, [activeItems.length]);
+    if (listFilter === 'done') {
+      return displayItems.filter((item) => item.checked);
+    }
+    return displayItems;
+  }, [displayItems, listFilter]);
+  const filterEmpty = filteredItems.length === 0 && displayItems.length > 0;
 
   const floatingOpacity = useSharedValue(0);
   const floatingTranslateY = useSharedValue(0);
@@ -535,6 +641,16 @@ export default function GroceriesScreen() {
       });
       if (error) {
         console.error('[Groceries] Failed to persist history event', error);
+        return;
+      }
+      if (action === 'added') {
+        const suggestion = buildSuggestion(safeName);
+        setRecentQuickAdds((prev) => {
+          const filtered = prev.filter(
+            (existing) => existing.label.toLowerCase() !== suggestion.label.toLowerCase(),
+          );
+          return [suggestion, ...filtered].slice(0, 8);
+        });
       }
     },
     [list?.id, session],
@@ -594,7 +710,6 @@ export default function GroceriesScreen() {
 
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         triggerFloatingEmoji(iconForItem(trimmedName));
-        setShowCompleted(false);
         Keyboard.dismiss();
         setPendingAdds((prev) =>
           prev.map((item) =>
@@ -625,8 +740,8 @@ export default function GroceriesScreen() {
   }, [addItem, itemName, itemQuantity]);
 
   const handleQuickAdd = useCallback(
-    async (label: string) => {
-      const success = await addItem({ name: label, quantity: 1 });
+    async (suggestion: QuickAddSuggestion) => {
+      const success = await addItem({ name: suggestion.label, quantity: 1 });
       if (success) {
         setItemName('');
         setItemQuantity(1);
@@ -776,6 +891,18 @@ export default function GroceriesScreen() {
     }
   }, [displayItems, list?.id, recordHistoryEvent]);
 
+  const handleRefresh = useCallback(async () => {
+    if (refreshing) {
+      return;
+    }
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch, refreshing]);
+
   const incrementQuantity = useCallback(() => {
     setItemQuantity((prev) => {
       const next = Math.min(prev + 1, 99);
@@ -810,37 +937,36 @@ export default function GroceriesScreen() {
     (item: DisplayItem) => item.id ?? item.tempId ?? item.name,
     [],
   );
-  const renderCompleted = useMemo(() => {
-    if (!showCompleted) {
-      return null;
+  const renderListEmpty = useCallback(() => {
+    if (displayItems.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <View style={styles.emptyIconBubble}>
+            <Text style={styles.emptyIcon}>🛒</Text>
+          </View>
+          <Text style={styles.emptyTitle}>Nog niets op de lijst</Text>
+          <Text style={styles.emptySubtitle}>Typ een product en druk op toevoegen.</Text>
+        </View>
+      );
     }
-    return (
-      <View style={styles.completedList}>
-        {completedItems.map((item) => (
-          <GroceryListItem
-            key={item.id}
-            item={item}
-            onToggle={() => handleToggleItem(item)}
-            onDelete={() => handleDeleteItem(item)}
-          />
-        ))}
-      </View>
-    );
-  }, [completedItems, handleDeleteItem, handleToggleItem, showCompleted]);
-  const renderListEmpty = useCallback(() => (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIconBubble}>
-        <Text style={styles.emptyIcon}>🛒</Text>
-      </View>
-      <Text style={styles.emptyTitle}>{emptyStateCopy?.title ?? 'Alles is binnen'}</Text>
-      <Text style={styles.emptySubtitle}>
-        {emptyStateCopy?.subtitle ?? 'Voeg bovenaan een item toe om te starten.'}
-      </Text>
-    </View>
-  ), [emptyStateCopy]);
+    if (filterEmpty) {
+      return (
+        <View style={styles.filterEmptyState}>
+          <Text style={styles.filterEmptyTitle}>Geen items in deze weergave</Text>
+          <Text style={styles.filterEmptySubtitle}>Pas je filter aan om andere items te zien.</Text>
+        </View>
+      );
+    }
+    return null;
+  }, [displayItems.length, filterEmpty]);
 
   const predictedIcon = itemName.trim() ? iconForItem(itemName) : '🛒';
-  const predictedLabel = itemName.trim() || 'Voeg iets lekkers toe';
+  const quickAddItems = quickAddTab === 'favorieten' ? FAVORITE_QUICK_ADD : recentQuickAdds;
+  const recentHint = useMemo(
+    () => recentQuickAdds.map((item) => item.label).slice(0, 4).join(' • '),
+    [recentQuickAdds],
+  );
+  const predictedLabel = itemName.trim() || recentHint || 'Voeg iets lekkers toe';
 
   if (loadingContext || itemsLoading) {
     return (
@@ -893,9 +1019,16 @@ export default function GroceriesScreen() {
           style={styles.flex}>
           <View style={styles.container}>
             <FlatList
-              data={activeItems}
+              data={filteredItems}
               keyExtractor={keyExtractor}
               renderItem={renderItem}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor={palette.deepClay}
+                />
+              }
               ListHeaderComponent={
                 <View style={styles.headerArea}>
                   <View style={styles.headerRow}>
@@ -936,6 +1069,23 @@ export default function GroceriesScreen() {
                       <Text style={styles.summaryBadgeText}>
                         {completedItems.length} klaar
                       </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.progressCard}>
+                    <View style={styles.progressHeader}>
+                      <Text style={styles.progressTitle}>Voortgang</Text>
+                      <Text style={styles.progressValue}>
+                        {Math.round(completionRatio * 100)}%
+                      </Text>
+                    </View>
+                    <View style={styles.progressBar}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          { width: `${Math.min(100, Math.round(completionRatio * 100))}%` },
+                        ]}
+                      />
                     </View>
                   </View>
 
@@ -990,16 +1140,44 @@ export default function GroceriesScreen() {
                       <Text style={styles.simpleHintLabel}>{predictedLabel}</Text>
                       <Text style={styles.simpleHintEmoji}>{predictedIcon}</Text>
                     </View>
+                    <View style={styles.quickAddToggle}>
+                      {(['favorieten', 'recent'] as const).map((tab) => {
+                        const isActive = quickAddTab === tab;
+                        return (
+                          <TouchableOpacity
+                            key={tab}
+                            style={[
+                              styles.quickAddToggleButton,
+                              isActive && styles.quickAddToggleButtonActive,
+                            ]}
+                            onPress={() => setQuickAddTab(tab)}>
+                            <Text
+                              style={[
+                                styles.quickAddToggleText,
+                                isActive && styles.quickAddToggleTextActive,
+                              ]}>
+                              {tab === 'favorieten' ? 'Favorieten' : 'Recent'}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
                     <View style={styles.suggestionRow}>
-                      {QUICK_ADD_SUGGESTIONS.slice(0, 3).map((suggestion) => (
-                        <TouchableOpacity
-                          key={suggestion.label}
-                          style={styles.suggestionChip}
-                          onPress={() => handleQuickAdd(suggestion.label)}>
-                          <Text style={styles.suggestionEmoji}>{suggestion.emoji}</Text>
-                          <Text style={styles.suggestionText}>{suggestion.label}</Text>
-                        </TouchableOpacity>
-                      ))}
+                      {quickAddItems.length === 0 ? (
+                        <Text style={styles.suggestionEmpty}>
+                          Nog niets in deze lijst. Voeg eerst iets toe.
+                        </Text>
+                      ) : (
+                        quickAddItems.map((suggestion) => (
+                          <TouchableOpacity
+                            key={suggestion.label}
+                            style={styles.suggestionChip}
+                            onPress={() => handleQuickAdd(suggestion)}>
+                            <Text style={styles.suggestionEmoji}>{suggestion.emoji}</Text>
+                            <Text style={styles.suggestionText}>{suggestion.label}</Text>
+                          </TouchableOpacity>
+                        ))
+                      )}
                     </View>
                   </View>
 
@@ -1012,44 +1190,48 @@ export default function GroceriesScreen() {
                     </View>
                   ) : null}
 
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      styles.clearButton,
-                      (clearingAll || displayItems.length === 0) && styles.actionButtonDisabled,
-                    ]}
-                    onPress={handleClearAll}
-                    disabled={clearingAll || displayItems.length === 0}>
-                    {clearingAll ? (
-                      <ActivityIndicator size="small" color={palette.deepClay} />
-                    ) : (
-                      <>
-                        <Feather name="trash-2" size={16} color={palette.deepClay} />
-                        <Text style={styles.clearText}>Lijst leegmaken</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+                  <View style={styles.filterRow}>
+                    {LIST_FILTERS.map((filter) => {
+                      const isActive = listFilter === filter.key;
+                      return (
+                        <TouchableOpacity
+                          key={filter.key}
+                          style={[styles.filterChip, isActive && styles.filterChipActive]}
+                          onPress={() => setListFilter(filter.key)}>
+                          <Text
+                            style={[
+                              styles.filterChipText,
+                              isActive && styles.filterChipTextActive,
+                            ]}>
+                            {filter.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
               }
               ListEmptyComponent={renderListEmpty}
               ListFooterComponent={
-                completedItems.length > 0 ? (
+                displayItems.length > 0 ? (
                   <View style={styles.footerSpacer}>
                     <TouchableOpacity
-                      style={styles.completedToggle}
-                      onPress={() => setShowCompleted((prev) => !prev)}>
-                      <Feather
-                        name={showCompleted ? 'chevron-up' : 'chevron-down'}
-                        size={16}
-                        color={palette.clay}
-                      />
-                      <Text style={styles.completedToggleText}>
-                        {showCompleted
-                          ? 'Verberg afgeronde items'
-                          : `Toon afgerond (${completedItems.length})`}
-                      </Text>
+                      style={[
+                        styles.actionButton,
+                        styles.clearButton,
+                        (clearingAll || displayItems.length === 0) && styles.actionButtonDisabled,
+                      ]}
+                      onPress={handleClearAll}
+                      disabled={clearingAll || displayItems.length === 0}>
+                      {clearingAll ? (
+                        <ActivityIndicator size="small" color={palette.deepClay} />
+                      ) : (
+                        <>
+                          <Feather name="trash-2" size={16} color={palette.deepClay} />
+                          <Text style={styles.clearText}>Lijst leegmaken</Text>
+                        </>
+                      )}
                     </TouchableOpacity>
-                    {renderCompleted}
                     <View style={styles.bottomSpacer} />
                   </View>
                 ) : (
@@ -1285,6 +1467,36 @@ const styles = StyleSheet.create({
     color: palette.clay,
     fontWeight: '600',
   },
+  progressCard: {
+    backgroundColor: 'rgba(63,31,30,0.05)',
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  progressTitle: {
+    fontWeight: '600',
+    color: 'rgba(63,31,30,0.75)',
+  },
+  progressValue: {
+    fontWeight: '700',
+    color: palette.clay,
+  },
+  progressBar: {
+    height: 10,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(63,31,30,0.12)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: radius.pill,
+    backgroundColor: palette.coral,
+  },
   addCardSimple: {
     marginTop: spacing.md,
     borderRadius: radius.lg,
@@ -1382,6 +1594,35 @@ const styles = StyleSheet.create({
   simpleHintEmoji: {
     fontSize: 20,
   },
+  quickAddToggle: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    backgroundColor: 'rgba(63,31,30,0.08)',
+    borderRadius: radius.pill,
+    padding: spacing.xs / 2,
+  },
+  quickAddToggleButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+  },
+  quickAddToggleButtonActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  quickAddToggleText: {
+    ...textStyles.caption,
+    fontWeight: '600',
+    color: 'rgba(63,31,30,0.6)',
+  },
+  quickAddToggleTextActive: {
+    color: palette.clay,
+  },
   suggestionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1403,6 +1644,10 @@ const styles = StyleSheet.create({
     ...textStyles.caption,
     color: palette.clay,
     fontWeight: '600',
+  },
+  suggestionEmpty: {
+    ...textStyles.caption,
+    color: 'rgba(63,31,30,0.6)',
   },
   actionButton: {
     flexDirection: 'row',
@@ -1429,6 +1674,30 @@ const styles = StyleSheet.create({
     color: '#402018',
     flex: 1,
   },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  filterChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(63,31,30,0.12)',
+    backgroundColor: '#FFFFFF',
+  },
+  filterChipActive: {
+    backgroundColor: '#FFE5CC',
+    borderColor: '#FFC999',
+  },
+  filterChipText: {
+    fontWeight: '600',
+    color: 'rgba(63,31,30,0.6)',
+  },
+  filterChipTextActive: {
+    color: palette.clay,
+  },
   listContent: {
     paddingBottom: spacing.xl * 4,
     gap: spacing.md,
@@ -1436,23 +1705,18 @@ const styles = StyleSheet.create({
   footerSpacer: {
     gap: spacing.md,
   },
-  completedToggle: {
-    flexDirection: 'row',
+  filterEmptyState: {
     alignItems: 'center',
+    paddingVertical: spacing.xl,
     gap: spacing.xs,
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(63,31,30,0.08)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
   },
-  completedToggleText: {
-    ...textStyles.caption,
-    color: palette.clay,
+  filterEmptyTitle: {
     fontWeight: '600',
+    color: palette.clay,
   },
-  completedList: {
-    gap: spacing.sm,
+  filterEmptySubtitle: {
+    ...textStyles.caption,
+    color: 'rgba(63,31,30,0.7)',
   },
   itemCard: {
     flexDirection: 'row',
