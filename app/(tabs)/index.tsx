@@ -348,8 +348,12 @@ export default function HomeScreen() {
     [now],
   );
 
-  const heroSubtitle = activeHouseholdId
-    ? `${weekday} ${dateLabel} • samen vooruit.`
+  const nextMission = FAMILY_MISSIONS[0];
+
+  const heroNarrative = activeHouseholdId
+    ? `${weekday} ${dateLabel} • ${
+        snapshot?.listName ? `focus: ${snapshot.listName}` : 'check samen wat er speelt'
+      }.`
     : 'Maak een huishouden aan en nodig de rest van de familie uit.';
 
   const handleNavigateToGroceries = () => {
@@ -363,6 +367,41 @@ export default function HomeScreen() {
     }
     toast('Deze functie komt binnenkort beschikbaar.');
   };
+
+  const handlePlanMoment = () => {
+    toast('Gezinsplanning komt binnenkort beschikbaar.');
+  };
+
+  const heroHighlights = useMemo(
+    () => [
+      {
+        id: 'groceries',
+        icon: 'shopping-cart' as FeatherIconName,
+        label: 'Boodschappen',
+        value:
+          snapshot?.openItems != null ? `${snapshot.openItems} open` : 'Nog leeg',
+        detail: snapshot?.listName ?? 'Start met een lijst',
+      },
+      {
+        id: 'household',
+        icon: 'users' as FeatherIconName,
+        label: 'Huishouden',
+        value:
+          snapshot?.memberCount != null ? `${snapshot.memberCount} leden` : 'Nog geen leden',
+        detail: snapshot?.name ?? 'Koppel je huishouden',
+      },
+      {
+        id: 'mission',
+        icon: 'target' as FeatherIconName,
+        label: 'Gezinsfocus',
+        value: nextMission?.title ?? 'Samen aan de slag',
+        detail: nextMission
+          ? `${Math.round(nextMission.progress * 100)}% afgerond`
+          : 'Plan jullie volgende missie',
+      },
+    ],
+    [snapshot, nextMission],
+  );
 
   const quickRows = useMemo(() => {
     const rows: QuickAction[][] = [];
@@ -394,24 +433,41 @@ export default function HomeScreen() {
               <Text style={styles.heroChipText}>{weekday}</Text>
             </View>
             <View style={styles.heroChip}>
-              <Feather name="clock" color={colors.surface} size={14} />
-              <Text style={styles.heroChipText}>Gezinsmodus</Text>
+              <Feather name="calendar" color={colors.surface} size={14} />
+              <Text style={styles.heroChipText}>{dateLabel}</Text>
             </View>
+            {activeHouseholdId ? (
+              <View style={styles.heroChip}>
+                <Feather name="home" color={colors.surface} size={14} />
+                <Text style={styles.heroChipText} numberOfLines={1}>
+                  {snapshot?.name ?? 'Huishouden'}
+                </Text>
+              </View>
+            ) : null}
           </View>
-          <Text style={styles.heroTitle}>Hoi {greetingName} 👋</Text>
-          <Text style={styles.heroSubtitle}>{heroSubtitle}</Text>
-          <View style={styles.heroStats}>
-            <View style={styles.heroStatCard}>
-              <Text style={styles.heroStatLabel}>Open boodschappen</Text>
-              <Text style={styles.heroStatValue}>{snapshot?.openItems ?? '—'}</Text>
-            </View>
-            <View style={styles.heroStatCard}>
-              <Text style={styles.heroStatLabel}>Gezinsleden</Text>
-              <Text style={styles.heroStatValue}>{snapshot?.memberCount ?? '—'}</Text>
-            </View>
+          <Text style={styles.heroEyebrow}>Gezinscentrale</Text>
+          <Text style={styles.heroTitle}>Welkom terug, {greetingName} 👋</Text>
+          <Text style={styles.heroSubtitle}>{heroNarrative}</Text>
+          <View style={styles.heroHighlightGrid}>
+            {heroHighlights.map((card) => (
+              <View key={card.id} style={styles.heroHighlightCard}>
+                <View style={styles.heroHighlightIcon}>
+                  <Feather name={card.icon} size={16} color="#0F3815" />
+                </View>
+                <View style={styles.heroHighlightText}>
+                  <Text style={styles.heroHighlightLabel}>{card.label}</Text>
+                  <Text style={styles.heroHighlightValue}>{card.value}</Text>
+                  <Text style={styles.heroHighlightDetail}>{card.detail}</Text>
+                </View>
+              </View>
+            ))}
           </View>
-          <View style={styles.heroButtonWrapper}>
+          <View style={styles.heroButtonRow}>
             <Button title="Open boodschappenlijst" onPress={handleNavigateToGroceries} />
+            <TouchableOpacity style={styles.heroSecondaryButton} onPress={handlePlanMoment}>
+              <Feather name="calendar" size={16} color={colors.surface} />
+              <Text style={styles.heroSecondaryButtonText}>Plan gezinsmoment</Text>
+            </TouchableOpacity>
           </View>
         </LinearGradient>
 
@@ -618,11 +674,12 @@ const styles = StyleSheet.create({
   hero: {
     borderRadius: radius.lg,
     padding: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   heroTopRow: {
     flexDirection: 'row',
     gap: spacing.sm,
+    flexWrap: 'wrap',
   },
   heroChip: {
     flexDirection: 'row',
@@ -632,11 +689,19 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    flexShrink: 1,
   },
   heroChipText: {
     color: colors.surface,
     fontSize: 12,
     fontWeight: '600',
+    maxWidth: 120,
+  },
+  heroEyebrow: {
+    color: 'rgba(255,255,255,0.7)',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    fontSize: 12,
   },
   heroTitle: {
     fontSize: 34,
@@ -647,41 +712,79 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     fontSize: 16,
     lineHeight: 22,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
-  heroStats: {
+  heroHighlightGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  heroStatCard: {
+  heroHighlightCard: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    minWidth: '45%',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: radius.md,
     padding: spacing.md,
   },
-  heroStatLabel: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 12,
+  heroHighlightIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroHighlightText: {
+    flex: 1,
+    gap: spacing.xs / 2,
+  },
+  heroHighlightLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 1,
+    fontWeight: '600',
   },
-  heroStatValue: {
+  heroHighlightValue: {
     color: colors.surface,
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '700',
-    marginTop: spacing.xs / 2,
   },
-  heroButtonWrapper: {
-    marginTop: spacing.md,
-    alignSelf: 'flex-start',
+  heroHighlightDetail: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
+  },
+  heroButtonRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  heroSecondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  heroSecondaryButtonText: {
+    color: colors.surface,
+    fontWeight: '600',
   },
   section: {
     gap: spacing.md,
   },
   sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
   },
   sectionTitle: {
     ...textStyles.subtitle,
@@ -691,6 +794,8 @@ const styles = StyleSheet.create({
   sectionHint: {
     ...textStyles.caption,
     textAlign: 'right',
+    flex: 1,
+    flexShrink: 1,
   },
   linkText: {
     color: colors.primaryDark,
