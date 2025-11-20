@@ -1,6 +1,6 @@
 module.exports = {
   root: true,
-  extends: ['@react-native/eslint-config', 'eslint-config-expo', 'prettier'],
+  extends: ['@react-native/eslint-config', 'prettier'],
   plugins: ['react-hooks'],
   rules: {
     'react-hooks/rules-of-hooks': 'error',

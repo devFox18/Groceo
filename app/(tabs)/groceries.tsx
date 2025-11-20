@@ -72,6 +72,11 @@ type DisplayItem = GroceryItem & {
   resolvedId?: string;
 };
 
+type DecoratedItem = DisplayItem & {
+  groupLabel: string;
+  showGroupHeader: boolean;
+};
+
 type HistoryAction = 'added' | 'deleted' | 'cleared';
 
 type HistoryEventPayload = {
@@ -105,6 +110,29 @@ const palette = {
   sand: '#FDE7C6',
   border: 'rgba(255,255,255,0.24)',
 };
+
+const TILE_THEMES = [
+  { card: '#FFF6ED', accent: '#F7B267', border: 'rgba(247,178,103,0.35)' },
+  { card: '#FDF1F1', accent: '#F47DAA', border: 'rgba(244,125,170,0.3)' },
+  { card: '#F1F8F4', accent: '#5FB49C', border: 'rgba(95,180,156,0.32)' },
+  { card: '#EFF3FF', accent: '#7E9BFF', border: 'rgba(126,155,255,0.3)' },
+];
+
+function tileThemeForItem(name: string) {
+  if (!name) {
+    return TILE_THEMES[0];
+  }
+  const first = name.trim().toLowerCase().charCodeAt(0) || 0;
+  return TILE_THEMES[first % TILE_THEMES.length];
+}
+
+function groupLabelForItem(item: DisplayItem) {
+  if (item.category && item.category.trim().length > 0) {
+    return item.category.trim();
+  }
+  const name = item.name.trim();
+  return name ? name.charAt(0).toUpperCase() : 'Overig';
+}
 
 const FAVORITE_QUICK_ADD: QuickAddSuggestion[] = [
   { label: 'Kaas', emoji: '🧀' },
@@ -355,6 +383,20 @@ export default function GroceriesScreen() {
     return displayItems;
   }, [displayItems, listFilter]);
   const filterEmpty = filteredItems.length === 0 && displayItems.length > 0;
+  const decoratedItems = useMemo<DecoratedItem[]>(() => {
+    const sorted = [...filteredItems].sort((a, b) =>
+      a.name.localeCompare(b.name, 'nl', { sensitivity: 'base' }),
+    );
+    return sorted.map((item, index) => {
+      const label = groupLabelForItem(item);
+      const prev = index > 0 ? groupLabelForItem(sorted[index - 1]) : null;
+      return {
+        ...item,
+        groupLabel: label,
+        showGroupHeader: !prev || prev !== label,
+      };
+    });
+  }, [filteredItems]);
 
   const floatingOpacity = useSharedValue(0);
   const floatingTranslateY = useSharedValue(0);
@@ -924,17 +966,25 @@ export default function GroceriesScreen() {
   }, []);
 
   const renderItem = useCallback(
-    ({ item }: { item: DisplayItem }) => (
-      <GroceryListItem
-        item={item}
-        onToggle={() => handleToggleItem(item)}
-        onDelete={() => handleDeleteItem(item)}
-      />
+    ({ item }: { item: DecoratedItem }) => (
+      <View style={styles.listItemWrapper}>
+        {item.showGroupHeader ? (
+          <View style={styles.groupHeaderRow}>
+            <Text style={styles.groupHeaderTitle}>{item.groupLabel}</Text>
+            <View style={styles.groupHeaderDivider} />
+          </View>
+        ) : null}
+        <GroceryListItem
+          item={item}
+          onToggle={() => handleToggleItem(item)}
+          onDelete={() => handleDeleteItem(item)}
+        />
+      </View>
     ),
     [handleDeleteItem, handleToggleItem],
   );
   const keyExtractor = useCallback(
-    (item: DisplayItem) => item.id ?? item.tempId ?? item.name,
+    (item: DecoratedItem) => item.id ?? item.tempId ?? item.name,
     [],
   );
   const renderListEmpty = useCallback(() => {
@@ -1019,7 +1069,7 @@ export default function GroceriesScreen() {
           style={styles.flex}>
           <View style={styles.container}>
             <FlatList
-              data={filteredItems}
+              data={decoratedItems}
               keyExtractor={keyExtractor}
               renderItem={renderItem}
               refreshControl={
@@ -1031,65 +1081,77 @@ export default function GroceriesScreen() {
               }
               ListHeaderComponent={
                 <View style={styles.headerArea}>
-                  <View style={styles.headerRow}>
-                    <View>
-                      <Text style={styles.appTitle}>Boodschappen</Text>
-                      <Text style={styles.appSubtitle}>Samen bijhouden wat er nog moet</Text>
+                  <LinearGradient colors={[palette.cream, palette.sand]} style={styles.heroCard}>
+                    <View style={styles.heroHeaderRow}>
+                      <View>
+                        <Text style={styles.appEyebrow}>Huishoudlijst</Text>
+                        <Text style={styles.appTitle}>Boodschappen</Text>
+                        <Text style={styles.appSubtitle}>Hou alles bij zoals bij Bring, maar dan Groceo.</Text>
+                      </View>
+                      <View style={styles.headerActions}>
+                        <TouchableOpacity
+                          style={styles.historyShortcut}
+                          onPress={() => router.push('/groceries-history')}>
+                          <Feather name="clock" size={16} color={palette.deepClay} />
+                          <Text style={styles.historyShortcutText}>Historie</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.avatarBadge}
+                          onPress={() => toast('Binnenkort kun je van huishouden wisselen!')}>
+                          <LinearGradient
+                            colors={[palette.coral, palette.amber]}
+                            style={styles.avatarGradient}>
+                            <Text style={styles.avatarInitial}>
+                              {session?.user.email?.[0]?.toUpperCase() ?? 'U'}
+                            </Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <View style={styles.headerActions}>
-                      <TouchableOpacity
-                        style={styles.historyShortcut}
-                        onPress={() => router.push('/groceries-history')}>
-                        <Feather name="clock" size={16} color={palette.deepClay} />
-                        <Text style={styles.historyShortcutText}>Historie</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.avatarBadge}
-                        onPress={() => toast('Binnenkort kun je van huishouden wisselen!')}>
-                        <LinearGradient
-                          colors={[palette.coral, palette.amber]}
-                          style={styles.avatarGradient}>
-                          <Text style={styles.avatarInitial}>
-                            {session?.user.email?.[0]?.toUpperCase() ?? 'U'}
-                          </Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
 
-                  <View style={styles.summaryRow}>
-                    <View style={styles.summaryBadge}>
-                      <Feather name="shopping-bag" size={16} color={palette.clay} />
-                      <Text style={styles.summaryBadgeText}>
-                        {remainingCount} {remainingCount === 1 ? 'item open' : 'items open'}
-                      </Text>
+                    <View style={styles.summaryRow}>
+                      <View style={styles.summaryBadge}>
+                        <Feather name="shopping-bag" size={16} color={palette.clay} />
+                        <Text style={styles.summaryBadgeText}>
+                          {remainingCount} {remainingCount === 1 ? 'item open' : 'items open'}
+                        </Text>
+                      </View>
+                      <View style={styles.summaryBadge}>
+                        <Feather name="check-circle" size={16} color={palette.clay} />
+                        <Text style={styles.summaryBadgeText}>
+                          {completedItems.length} klaar
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.summaryBadge}>
-                      <Feather name="check-circle" size={16} color={palette.clay} />
-                      <Text style={styles.summaryBadgeText}>
-                        {completedItems.length} klaar
-                      </Text>
-                    </View>
-                  </View>
 
-                  <View style={styles.progressCard}>
-                    <View style={styles.progressHeader}>
-                      <Text style={styles.progressTitle}>Voortgang</Text>
-                      <Text style={styles.progressValue}>
-                        {Math.round(completionRatio * 100)}%
-                      </Text>
+                    <View style={styles.progressCard}>
+                      <View style={styles.progressHeader}>
+                        <Text style={styles.progressTitle}>Voortgang vandaag</Text>
+                        <Text style={styles.progressValue}>
+                          {Math.round(completionRatio * 100)}%
+                        </Text>
+                      </View>
+                      <View style={styles.progressBar}>
+                        <View
+                          style={[
+                            styles.progressFill,
+                            { width: `${Math.min(100, Math.round(completionRatio * 100))}%` },
+                          ]}
+                        />
+                      </View>
                     </View>
-                    <View style={styles.progressBar}>
-                      <View
-                        style={[
-                          styles.progressFill,
-                          { width: `${Math.min(100, Math.round(completionRatio * 100))}%` },
-                        ]}
-                      />
-                    </View>
-                  </View>
+                  </LinearGradient>
 
-                  <View style={styles.addCardSimple}>
+                  <View style={styles.addPanel}>
+                    <View style={styles.addPanelHeader}>
+                      <View>
+                        <Text style={styles.addPanelTitle}>Nieuw product</Text>
+                        <Text style={styles.addPanelSubtitle}>{predictedLabel}</Text>
+                      </View>
+                      <View style={styles.addPanelEmoji}>
+                        <Text style={styles.addPanelEmojiText}>{predictedIcon}</Text>
+                      </View>
+                    </View>
                     <View style={styles.addRow}>
                       <Ionicons name="search" size={18} color={palette.deepClay} />
                       <TextInput
@@ -1136,10 +1198,6 @@ export default function GroceriesScreen() {
                         )}
                       </TouchableOpacity>
                     </View>
-                    <View style={styles.simpleHintRow}>
-                      <Text style={styles.simpleHintLabel}>{predictedLabel}</Text>
-                      <Text style={styles.simpleHintEmoji}>{predictedIcon}</Text>
-                    </View>
                     <View style={styles.quickAddToggle}>
                       {(['favorieten', 'recent'] as const).map((tab) => {
                         const isActive = quickAddTab === tab;
@@ -1162,7 +1220,7 @@ export default function GroceriesScreen() {
                         );
                       })}
                     </View>
-                    <View style={styles.suggestionRow}>
+                    <View style={styles.quickTileGrid}>
                       {quickAddItems.length === 0 ? (
                         <Text style={styles.suggestionEmpty}>
                           Nog niets in deze lijst. Voeg eerst iets toe.
@@ -1171,10 +1229,10 @@ export default function GroceriesScreen() {
                         quickAddItems.map((suggestion) => (
                           <TouchableOpacity
                             key={suggestion.label}
-                            style={styles.suggestionChip}
+                            style={styles.quickTile}
                             onPress={() => handleQuickAdd(suggestion)}>
-                            <Text style={styles.suggestionEmoji}>{suggestion.emoji}</Text>
-                            <Text style={styles.suggestionText}>{suggestion.label}</Text>
+                            <Text style={styles.quickTileEmoji}>{suggestion.emoji}</Text>
+                            <Text style={styles.quickTileLabel}>{suggestion.label}</Text>
                           </TouchableOpacity>
                         ))
                       )}
@@ -1190,25 +1248,44 @@ export default function GroceriesScreen() {
                     </View>
                   ) : null}
 
-                  <View style={styles.filterRow}>
-                    {LIST_FILTERS.map((filter) => {
-                      const isActive = listFilter === filter.key;
-                      return (
-                        <TouchableOpacity
-                          key={filter.key}
-                          style={[styles.filterChip, isActive && styles.filterChipActive]}
-                          onPress={() => setListFilter(filter.key)}>
-                          <Text
-                            style={[
-                              styles.filterChipText,
-                              isActive && styles.filterChipTextActive,
-                            ]}>
-                            {filter.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                  <View style={styles.filterCard}>
+                    <Text style={styles.filterTitle}>Weergave</Text>
+                    <View style={styles.filterRow}>
+                      {LIST_FILTERS.map((filter) => {
+                        const isActive = listFilter === filter.key;
+                        return (
+                          <TouchableOpacity
+                            key={filter.key}
+                            style={[styles.filterChip, isActive && styles.filterChipActive]}
+                            onPress={() => setListFilter(filter.key)}>
+                            <Text
+                              style={[
+                                styles.filterChipText,
+                                isActive && styles.filterChipTextActive,
+                              ]}>
+                              {filter.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
                   </View>
+
+                  <TouchableOpacity
+                    style={styles.historyCard}
+                    onPress={() => router.push('/groceries-history')}
+                    activeOpacity={0.85}>
+                    <View style={styles.historyIconWrap}>
+                      <Feather name="clock" size={16} color={palette.deepClay} />
+                    </View>
+                    <View style={styles.historyBody}>
+                      <Text style={styles.historyTitle}>Historie</Text>
+                      <Text style={styles.historySubtitle}>
+                        Zie wat er is toegevoegd of verwijderd in de lijst.
+                      </Text>
+                    </View>
+                    <Feather name="arrow-right" size={16} color={palette.deepClay} />
+                  </TouchableOpacity>
                 </View>
               }
               ListEmptyComponent={renderListEmpty}
@@ -1264,6 +1341,8 @@ type GroceryListItemProps = {
 };
 
 function GroceryListItem({ item, onToggle, onDelete }: GroceryListItemProps) {
+  const theme = tileThemeForItem(item.name);
+
   return (
     <Swipeable
       overshootLeft={false}
@@ -1292,26 +1371,38 @@ function GroceryListItem({ item, onToggle, onDelete }: GroceryListItemProps) {
         entering={FadeInDown.springify().damping(16)}
         exiting={FadeOutUp.duration(180)}
         layout={Layout.springify().damping(16).stiffness(140)}
-        style={[styles.itemCard, item.checked && styles.itemCardChecked]}>
-        <TouchableOpacity
-          onPress={onToggle}
-          style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
-          {item.checked ? <Feather name="check" size={16} color="#FFFFFF" /> : null}
-        </TouchableOpacity>
-        <View style={styles.itemContent}>
-          <Text style={[styles.itemName, item.checked && styles.itemNameChecked]}>
+        style={[
+          styles.itemTile,
+          item.checked && styles.itemTileChecked,
+          { backgroundColor: theme.card, borderColor: theme.border },
+        ]}>
+        <View style={styles.itemTileHeader}>
+          <View style={[styles.itemEmojiBubble, { backgroundColor: theme.accent }]}>
+            <Text style={styles.itemEmoji}>{iconForItem(item.name)}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={onToggle}
+            style={[styles.tileCheckButton, item.checked && styles.tileCheckButtonChecked]}>
+            <Feather
+              name={item.checked ? 'check' : 'plus'}
+              size={16}
+              color={item.checked ? '#FFFFFF' : palette.clay}
+            />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.itemTileBody}>
+          <Text style={[styles.itemTileName, item.checked && styles.itemTileNameChecked]}>
             {item.name}
           </Text>
-          <Text style={styles.itemMeta}>
-            {item.quantity > 1 ? `Aantal ${item.quantity}` : 'Slechts één'}
+          <Text style={styles.itemTileQuantity}>
+            {item.quantity > 1 ? `${item.quantity} stuks` : '1 stuk'}
           </Text>
         </View>
-        <View style={styles.itemTrailing}>
-          <View style={styles.itemIconBubble}>
-            <Text style={styles.itemIcon}>{iconForItem(item.name)}</Text>
-          </View>
-          <TouchableOpacity style={styles.itemDeleteButton} onPress={onDelete}>
-            <Feather name="trash-2" size={16} color="#FFFFFF" />
+        <View style={styles.itemTileFooter}>
+          <Text style={styles.itemTileStatus}>{item.checked ? 'Afgevinkt' : 'Nog nodig'}</Text>
+          <TouchableOpacity style={styles.itemDeletePill} onPress={onDelete}>
+            <Feather name="trash-2" size={14} color="#FFFFFF" />
+            <Text style={styles.itemDeletePillText}>Verwijderen</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -1399,18 +1490,34 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     paddingBottom: spacing.lg,
   },
-  headerRow: {
+  heroCard: {
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    gap: spacing.md,
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 18 },
+    shadowRadius: 28,
+    elevation: 12,
+  },
+  heroHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: spacing.md,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
+  appEyebrow: {
+    ...textStyles.caption,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    color: 'rgba(63,31,30,0.6)',
+  },
   appTitle: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '700',
     color: palette.clay,
   },
@@ -1457,7 +1564,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: palette.sand,
+    backgroundColor: 'rgba(63,31,30,0.08)',
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
@@ -1468,10 +1575,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   progressCard: {
-    backgroundColor: 'rgba(63,31,30,0.05)',
-    borderRadius: radius.xl,
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.lg,
     padding: spacing.md,
     gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(63,31,30,0.08)',
   },
   progressHeader: {
     flexDirection: 'row',
@@ -1497,17 +1606,41 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: palette.coral,
   },
-  addCardSimple: {
-    marginTop: spacing.md,
-    borderRadius: radius.lg,
-    padding: spacing.md,
+  addPanel: {
+    borderRadius: radius.xl,
+    padding: spacing.lg,
     backgroundColor: '#FFFFFF',
-    gap: spacing.md,
+    gap: spacing.lg,
     shadowColor: '#000000',
-    shadowOpacity: 0.07,
-    shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 18,
-    elevation: 6,
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 14 },
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  addPanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  addPanelTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: palette.clay,
+  },
+  addPanelSubtitle: {
+    ...textStyles.caption,
+    color: 'rgba(63,31,30,0.65)',
+  },
+  addPanelEmoji: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: 'rgba(63,31,30,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addPanelEmojiText: {
+    fontSize: 26,
   },
   addRow: {
     flexDirection: 'row',
@@ -1582,18 +1715,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: palette.deepClay,
   },
-  simpleHintRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  simpleHintLabel: {
-    ...textStyles.caption,
-    color: 'rgba(63,31,30,0.65)',
-  },
-  simpleHintEmoji: {
-    fontSize: 20,
-  },
   quickAddToggle: {
     flexDirection: 'row',
     gap: spacing.xs,
@@ -1623,27 +1744,26 @@ const styles = StyleSheet.create({
   quickAddToggleTextActive: {
     color: palette.clay,
   },
-  suggestionRow: {
+  quickTileGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  suggestionChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(63,31,30,0.06)',
+  quickTile: {
+    flexGrow: 1,
+    minWidth: 120,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    backgroundColor: 'rgba(63,31,30,0.04)',
+    alignItems: 'flex-start',
+    gap: spacing.xs / 2,
   },
-  suggestionEmoji: {
-    fontSize: 16,
+  quickTileEmoji: {
+    fontSize: 22,
   },
-  suggestionText: {
-    ...textStyles.caption,
-    color: palette.clay,
+  quickTileLabel: {
     fontWeight: '600',
+    color: palette.clay,
   },
   suggestionEmpty: {
     ...textStyles.caption,
@@ -1674,6 +1794,21 @@ const styles = StyleSheet.create({
     color: '#402018',
     flex: 1,
   },
+  filterCard: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  filterTitle: {
+    fontWeight: '700',
+    color: palette.clay,
+  },
   filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1698,9 +1833,65 @@ const styles = StyleSheet.create({
   filterChipTextActive: {
     color: palette.clay,
   },
+  historyCard: {
+    marginTop: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: '#FFF4EA',
+    borderWidth: 1,
+    borderColor: palette.border,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    shadowColor: '#00000014',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 12 },
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  historyIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: '#FFE3C6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyBody: {
+    flex: 1,
+    gap: spacing.xs / 2,
+  },
+  historyTitle: {
+    fontWeight: '700',
+    color: palette.deepClay,
+    fontSize: 15,
+  },
+  historySubtitle: {
+    color: palette.clay,
+    fontSize: 13,
+    lineHeight: 18,
+  },
   listContent: {
     paddingBottom: spacing.xl * 4,
     gap: spacing.md,
+  },
+  listItemWrapper: {
+    gap: spacing.xs,
+  },
+  groupHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  groupHeaderTitle: {
+    fontWeight: '700',
+    color: 'rgba(63,31,30,0.7)',
+  },
+  groupHeaderDivider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(63,31,30,0.12)',
   },
   footerSpacer: {
     gap: spacing.md,
@@ -1718,81 +1909,88 @@ const styles = StyleSheet.create({
     ...textStyles.caption,
     color: 'rgba(63,31,30,0.7)',
   },
-  itemCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: palette.cream,
-    padding: spacing.md,
+  itemTile: {
     borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.md,
+    borderWidth: 1,
     shadowColor: '#000000',
     shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 12 },
-    shadowRadius: 22,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 18 },
+    shadowRadius: 24,
+    elevation: 10,
   },
-  itemCardChecked: {
-    opacity: 0.6,
+  itemTileChecked: {
+    opacity: 0.8,
   },
-  checkbox: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.md,
-    borderWidth: 2,
-    borderColor: palette.coral,
+  itemTileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  itemEmojiBubble: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemEmoji: {
+    fontSize: 28,
+  },
+  tileCheckButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(63,31,30,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
   },
-  checkboxChecked: {
+  tileCheckButtonChecked: {
     backgroundColor: palette.mint,
     borderColor: palette.mint,
   },
-  itemContent: {
-    flex: 1,
+  itemTileBody: {
     gap: spacing.xs / 2,
   },
-  itemName: {
-    fontSize: 16,
-    fontWeight: '600',
+  itemTileName: {
+    fontSize: 18,
+    fontWeight: '700',
     color: palette.clay,
   },
-  itemNameChecked: {
-    color: 'rgba(63,31,30,0.6)',
+  itemTileNameChecked: {
+    color: 'rgba(63,31,30,0.55)',
     textDecorationLine: 'line-through',
   },
-  itemMeta: {
+  itemTileQuantity: {
     ...textStyles.caption,
-    color: 'rgba(63,31,30,0.55)',
+    color: 'rgba(63,31,30,0.65)',
   },
-  itemIcon: {
-    fontSize: 24,
+  itemTileFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  itemTrailing: {
+  itemTileStatus: {
+    ...textStyles.caption,
+    fontWeight: '600',
+    color: 'rgba(63,31,30,0.6)',
+  },
+  itemDeletePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-  },
-  itemIconBubble: {
-    width: 40,
-    height: 40,
+    gap: spacing.xs / 2,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
     borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  itemDeleteButton: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#EB5757',
+  },
+  itemDeletePillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   leftAction: {
     width: 96,

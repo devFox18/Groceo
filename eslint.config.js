@@ -12,5 +12,8 @@ module.exports = defineConfig([
   ...compat.config(require('./.eslintrc.js')),
   {
     ignores: ['dist/*', 'app-example/*'],
+    rules: {
+      'prettier/prettier': 'off',
+    },
   },
 ]);

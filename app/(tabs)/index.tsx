@@ -84,6 +84,14 @@ const QUICK_ACTIONS: QuickAction[] = [
     route: '/(tabs)/groceries',
   },
   {
+    id: 'history',
+    title: 'Historie',
+    description: 'Zie wat er is toegevoegd of verwijderd.',
+    icon: 'clock',
+    accent: '#F4A261',
+    route: '/groceries-history',
+  },
+  {
     id: 'planner',
     title: 'Gezinsplanner',
     description: 'Snel een gezinsmoment vastleggen.',
@@ -402,6 +410,7 @@ export default function HomeScreen() {
     ],
     [snapshot, nextMission],
   );
+  const heroPrimaryHighlights = useMemo(() => heroHighlights.slice(0, 2), [heroHighlights]);
 
   const quickRows = useMemo(() => {
     const rows: QuickAction[][] = [];
@@ -427,7 +436,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <LinearGradient colors={['#1B5E20', '#0F3815']} style={styles.hero}>
-          <View style={styles.heroTopRow}>
+          <View style={styles.heroChipRow}>
             <View style={styles.heroChip}>
               <Feather name="sun" color={colors.surface} size={14} />
               <Text style={styles.heroChipText}>{weekday}</Text>
@@ -445,20 +454,17 @@ export default function HomeScreen() {
               </View>
             ) : null}
           </View>
-          <Text style={styles.heroEyebrow}>Gezinscentrale</Text>
-          <Text style={styles.heroTitle}>Welkom terug, {greetingName} 👋</Text>
-          <Text style={styles.heroSubtitle}>{heroNarrative}</Text>
-          <View style={styles.heroHighlightGrid}>
-            {heroHighlights.map((card) => (
-              <View key={card.id} style={styles.heroHighlightCard}>
-                <View style={styles.heroHighlightIcon}>
-                  <Feather name={card.icon} size={16} color="#0F3815" />
-                </View>
-                <View style={styles.heroHighlightText}>
-                  <Text style={styles.heroHighlightLabel}>{card.label}</Text>
-                  <Text style={styles.heroHighlightValue}>{card.value}</Text>
-                  <Text style={styles.heroHighlightDetail}>{card.detail}</Text>
-                </View>
+          <View style={styles.heroTextBlock}>
+            <Text style={styles.heroEyebrow}>Gezinscentrale</Text>
+            <Text style={styles.heroTitle}>Welkom terug, {greetingName} 👋</Text>
+            <Text style={styles.heroSubtitle}>{heroNarrative}</Text>
+          </View>
+          <View style={styles.heroMiniGrid}>
+            {heroPrimaryHighlights.map((card) => (
+              <View key={card.id} style={styles.heroMiniCard}>
+                <Text style={styles.heroMiniLabel}>{card.label}</Text>
+                <Text style={styles.heroMiniValue}>{card.value}</Text>
+                <Text style={styles.heroMiniDetail}>{card.detail}</Text>
               </View>
             ))}
           </View>
@@ -575,7 +581,6 @@ export default function HomeScreen() {
                     <Text style={styles.quickDescription}>{action.description}</Text>
                   </TouchableOpacity>
                 ))}
-                {row.length < 2 ? <View style={[styles.quickAction, styles.quickPlaceholder]} /> : null}
               </View>
             ))}
           </View>
@@ -676,7 +681,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
   },
-  heroTopRow: {
+  heroChipRow: {
     flexDirection: 'row',
     gap: spacing.sm,
     flexWrap: 'wrap',
@@ -697,6 +702,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     maxWidth: 120,
   },
+  heroTextBlock: {
+    gap: spacing.xs,
+  },
   heroEyebrow: {
     color: 'rgba(255,255,255,0.7)',
     textTransform: 'uppercase',
@@ -712,47 +720,33 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     fontSize: 16,
     lineHeight: 22,
-    marginBottom: spacing.xs,
   },
-  heroHighlightGrid: {
+  heroMiniGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  heroHighlightCard: {
+  heroMiniCard: {
     flex: 1,
-    minWidth: '45%',
-    flexDirection: 'row',
-    gap: spacing.sm,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    minWidth: 140,
     borderRadius: radius.md,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     padding: spacing.md,
-  },
-  heroHighlightIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroHighlightText: {
-    flex: 1,
     gap: spacing.xs / 2,
   },
-  heroHighlightLabel: {
-    color: 'rgba(255,255,255,0.7)',
+  heroMiniLabel: {
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 1,
+    color: 'rgba(255,255,255,0.7)',
     fontWeight: '600',
   },
-  heroHighlightValue: {
+  heroMiniValue: {
     color: colors.surface,
     fontSize: 18,
     fontWeight: '700',
   },
-  heroHighlightDetail: {
+  heroMiniDetail: {
     color: 'rgba(255,255,255,0.85)',
     fontSize: 13,
   },
@@ -929,9 +923,6 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
-  },
-  quickPlaceholder: {
-    opacity: 0,
   },
   quickIcon: {
     width: 40,

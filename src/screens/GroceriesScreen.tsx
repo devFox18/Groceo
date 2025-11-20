@@ -1,7 +1,8 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  FlatList,
+  Keyboard,
   ScrollView,
+  SectionList,
   StyleSheet,
   Text,
   TextInput,
@@ -9,57 +10,39 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Swipeable } from 'react-native-gesture-handler';
 
 type GroceryItem = {
   id: string;
   name: string;
-  quantity: number;
   done: boolean;
+  addedBy: string;
 };
 
-type RecentItem = {
+type FavoriteItem = {
   id: string;
   name: string;
   emoji: string;
 };
 
-const DEFAULT_RECENT_ITEMS: RecentItem[] = [
-  { id: 'cheese', name: 'Kaas', emoji: '🧀' },
+const FAVORITE_ITEMS: FavoriteItem[] = [
   { id: 'milk', name: 'Melk', emoji: '🥛' },
-  { id: 'bread', name: 'Vers brood', emoji: '🍞' },
-  { id: 'coffee', name: 'Koffiebonen', emoji: '☕️' },
+  { id: 'bread', name: 'Brood', emoji: '🍞' },
+  { id: 'fruit', name: 'Appels', emoji: '🍎' },
 ];
 
-const BottomNav = () => (
-  <View style={styles.navBar}>
-    <TouchableOpacity style={styles.navItem}>
-      <Text style={styles.navLabel}>Home</Text>
-    </TouchableOpacity>
-    <TouchableOpacity style={[styles.navItem, styles.navItemActive]}>
-      <Text style={[styles.navLabel, styles.navLabelActive]}>Boodschappen</Text>
-    </TouchableOpacity>
-    <TouchableOpacity style={styles.navItem}>
-      <Text style={styles.navLabel}>Profiel</Text>
-    </TouchableOpacity>
-  </View>
-);
+const CONTRIBUTORS = ['Mama', 'Papa', 'Noor', 'Liam'];
 
-const StatusPill = ({ label }: { label: string }) => (
-  <View style={styles.statusPill}>
-    <Text style={styles.statusText}>{label}</Text>
-  </View>
-);
-
-const RecentItemPill = ({
+const QuickAddPill = ({
   item,
   onSelect,
 }: {
-  item: RecentItem;
-  onSelect: (item: RecentItem) => void;
+  item: FavoriteItem;
+  onSelect: (item: FavoriteItem) => void;
 }) => (
-  <TouchableOpacity style={styles.recentPill} onPress={() => onSelect(item)}>
-    <Text style={styles.recentEmoji}>{item.emoji}</Text>
-    <Text style={styles.recentLabel}>{item.name}</Text>
+  <TouchableOpacity style={styles.quickAddPill} onPress={() => onSelect(item)}>
+    <Text style={styles.quickAddEmoji}>{item.emoji}</Text>
+    <Text style={styles.quickAddLabel}>{item.name}</Text>
   </TouchableOpacity>
 );
 
@@ -71,48 +54,95 @@ const ListItemCard = ({
   item: GroceryItem;
   onToggle: () => void;
   onDelete: () => void;
-}) => (
-  <View style={[styles.listCard, item.done && styles.listCardDone]}>
-    <TouchableOpacity style={styles.checkbox} onPress={onToggle}>
-      <Text style={styles.checkboxIcon}>{item.done ? '✔︎' : ''}</Text>
-    </TouchableOpacity>
-    <View style={styles.listCardContent}>
-      <Text style={[styles.listCardTitle, item.done && styles.listCardTitleDone]}>{item.name}</Text>
-      <Text style={styles.listCardSubtitle}>x{item.quantity}</Text>
+}) => {
+  const swipeRef = useRef<Swipeable | null>(null);
+
+  const renderRightActions = () => (
+    <View style={styles.deleteAction}>
+      <Text style={styles.deleteActionText}>Verwijder</Text>
     </View>
-    <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
-      <Text style={styles.deleteIcon}>🗑</Text>
-    </TouchableOpacity>
+  );
+
+  const handleSwipeableOpen = (direction: 'left' | 'right') => {
+    if (direction === 'right') {
+      onDelete();
+      swipeRef.current?.close();
+    }
+  };
+
+  return (
+    <Swipeable
+      ref={swipeRef}
+      friction={2}
+      renderRightActions={renderRightActions}
+      onSwipeableOpen={handleSwipeableOpen}>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        style={[styles.listCard, item.done && styles.listCardDone]}
+        onPress={onToggle}>
+        <View style={[styles.cardDot, item.done && styles.cardDotDone]} />
+        <View style={styles.cardTextGroup}>
+          <Text style={[styles.cardTitle, item.done && styles.cardTitleDone]}>{item.name}</Text>
+          <Text style={styles.cardSubtitle}>Toegevoegd door {item.addedBy}</Text>
+        </View>
+        {item.done && <Text style={styles.cardCheck}>✓</Text>}
+      </TouchableOpacity>
+    </Swipeable>
+  );
+};
+
+const EmptyState = () => (
+  <View style={styles.emptyState}>
+    <View style={styles.emptyBadge}>
+      <Text style={styles.emptyBadgeIcon}>✨</Text>
+    </View>
+    <Text style={styles.emptyTitle}>Alles geregeld</Text>
+    <Text style={styles.emptySubtitle}>Typ hierboven om je lijst te vullen.</Text>
   </View>
 );
 
 export default function GroceriesScreen() {
   const [items, setItems] = useState<GroceryItem[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [quantity, setQuantity] = useState(1);
-  const [recentPurchasedItems] = useState<RecentItem[]>(DEFAULT_RECENT_ITEMS);
+  const [showFavorites, setShowFavorites] = useState(true);
+  const [contributorIndex, setContributorIndex] = useState(0);
 
-  const remainingCount = useMemo(() => items.filter((item) => !item.done).length, [items]);
-  const doneCount = useMemo(() => items.filter((item) => item.done).length, [items]);
+  const openItems = useMemo(() => items.filter((item) => !item.done), [items]);
+  const checkedItems = useMemo(() => items.filter((item) => item.done), [items]);
+  const sections = useMemo(() => {
+    const next = [];
+    if (openItems.length > 0) {
+      next.push({ title: 'Nog nodig', data: openItems });
+    }
+    if (checkedItems.length > 0) {
+      next.push({ title: 'In tas', data: checkedItems });
+    }
+    return next;
+  }, [openItems, checkedItems]);
+
+  const canSubmit = inputValue.trim().length > 0;
+  const placeholder = items.length === 0 ? 'Wat moet er mee?' : 'Nog iets?';
 
   const handleAddItem = useCallback(
-    (nameOverride?: string, quantityOverride?: number) => {
-      const name = (nameOverride ?? inputValue).trim();
-      const qty = quantityOverride ?? quantity;
-      if (!name) {
+    (nameOverride?: string) => {
+      const cleanName = (nameOverride ?? inputValue).trim();
+      if (!cleanName) {
         return;
       }
+      const author = CONTRIBUTORS[contributorIndex % CONTRIBUTORS.length];
       const newItem: GroceryItem = {
         id: Date.now().toString(),
-        name,
-        quantity: qty,
+        name: cleanName,
         done: false,
+        addedBy: author,
       };
       setItems((prev) => [newItem, ...prev]);
       setInputValue('');
-      setQuantity(1);
+      setContributorIndex((prev) => (prev + 1) % CONTRIBUTORS.length);
+      setShowFavorites(false);
+      Keyboard.dismiss();
     },
-    [inputValue, quantity],
+    [contributorIndex, inputValue],
   );
 
   const handleToggleItem = useCallback((id: string) => {
@@ -125,127 +155,89 @@ export default function GroceriesScreen() {
     setItems((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
-  const handleClearList = useCallback(() => {
-    setItems([]);
-  }, []);
-
-  const handleRecentSelect = useCallback(
-    (recentItem: RecentItem) => {
-      setInputValue(recentItem.name);
-      handleAddItem(recentItem.name, 1);
+  const handleQuickAdd = useCallback(
+    (favorite: FavoriteItem) => {
+      handleAddItem(favorite.name);
     },
     [handleAddItem],
   );
 
-  const decrementQuantity = () => {
-    setQuantity((prev) => Math.max(1, prev - 1));
-  };
-
-  const incrementQuantity = () => {
-    setQuantity((prev) => prev + 1);
-  };
+  const shouldShowFavorites = showFavorites && FAVORITE_ITEMS.length > 0 && items.length === 0;
+  const canRevealFavorites = !shouldShowFavorites && items.length > 0;
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.backgroundCard}>
-        <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.title}>Boodschappen</Text>
-              <Text style={styles.subtitle}>Samen bijhouden wat er nog moet</Text>
-            </View>
+      <View style={styles.container}>
+        <View style={styles.hero}>
+          <Text style={styles.kicker}>Lijst</Text>
+          <Text style={styles.title}>Lijst van vandaag</Text>
+          <Text style={styles.subtitle}>Alles wat nog moet op één plek.</Text>
+          <View style={[styles.inputWrapper, canSubmit && styles.inputWrapperActive]}>
+            <TextInput
+              placeholder={placeholder}
+              placeholderTextColor="rgba(21,24,35,0.35)"
+              style={styles.input}
+              value={inputValue}
+              onChangeText={(text) => setInputValue(text)}
+              returnKeyType="done"
+              onSubmitEditing={() => handleAddItem()}
+            />
+            {canSubmit ? (
+              <TouchableOpacity style={styles.addButton} onPress={() => handleAddItem()}>
+                <Text style={styles.addButtonIcon}>+</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
+        {shouldShowFavorites ? (
+          <ScrollView
+            horizontal
+            contentContainerStyle={styles.quickAddRow}
+            showsHorizontalScrollIndicator={false}>
+            {FAVORITE_ITEMS.map((favorite) => (
+              <QuickAddPill key={favorite.id} item={favorite} onSelect={handleQuickAdd} />
+            ))}
+          </ScrollView>
+        ) : (
+          canRevealFavorites && (
             <TouchableOpacity
-              style={styles.historyButton}
-              onPress={() => {
-                console.log('Open history');
-              }}>
-              <Text style={styles.historyButtonText}>🕓 Historie</Text>
+              style={styles.revealFavoritesButton}
+              onPress={() => setShowFavorites(true)}>
+              <Text style={styles.revealFavoritesText}>Favorieten tonen</Text>
             </TouchableOpacity>
-          </View>
+          )
+        )}
 
-          <View style={styles.statusRow}>
-            <StatusPill label={`${remainingCount} items open`} />
-            <StatusPill label={`${doneCount} klaar`} />
-          </View>
-
-          <View style={styles.addCard}>
-            <View style={styles.inputRow}>
-              <View style={styles.inputIconBubble}>
-                <Text style={styles.inputIcon}>🔍</Text>
-              </View>
-              <TextInput
-                placeholder="Wat moet er mee?"
-                placeholderTextColor="rgba(63,31,30,0.4)"
-                style={styles.input}
-                value={inputValue}
-                onChangeText={setInputValue}
-                returnKeyType="done"
-                onSubmitEditing={() => handleAddItem()}
-              />
-              <TouchableOpacity style={styles.circleButton} onPress={() => handleAddItem()}>
-                <Text style={styles.circleButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.quantityRow}>
-              <Text style={styles.quantityLabel}>Aantal</Text>
-              <View style={styles.stepper}>
-                <TouchableOpacity style={styles.stepperButton} onPress={decrementQuantity}>
-                  <Text style={styles.stepperText}>−</Text>
-                </TouchableOpacity>
-                <Text style={styles.stepperValue}>{quantity}</Text>
-                <TouchableOpacity style={styles.stepperButton} onPress={incrementQuantity}>
-                  <Text style={styles.stepperText}>+</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity style={styles.primaryButton} onPress={() => handleAddItem()}>
-                <Text style={styles.primaryButtonText}>Toevoegen</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.recentSection}>
-              <Text style={styles.recentTitle}>Recent gekocht</Text>
-              <View style={styles.recentList}>
-                {recentPurchasedItems.map((recentItem) => (
-                  <RecentItemPill key={recentItem.id} item={recentItem} onSelect={handleRecentSelect} />
-                ))}
-              </View>
-            </View>
-          </View>
-
-          {items.length === 0 ? (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIconBubble}>
-                <Text style={styles.emptyIcon}>🛒</Text>
-              </View>
-              <Text style={styles.emptyTitle}>Nog niets op de lijst</Text>
-              <Text style={styles.emptySubtitle}>Typ een product en druk op toevoegen.</Text>
-            </View>
+        <View style={styles.listWrapper}>
+          {sections.length === 0 ? (
+            <EmptyState />
           ) : (
-            <>
-              <View style={styles.listSection}>
-                <FlatList
-                  data={items}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
-                    <ListItemCard
-                      item={item}
-                      onToggle={() => handleToggleItem(item.id)}
-                      onDelete={() => handleDeleteItem(item.id)}
-                    />
-                  )}
-                  scrollEnabled={false}
-                  ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+            <SectionList
+              sections={sections}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.sectionContent}
+              ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+              renderSectionHeader={({ section }) => (
+                <Text style={styles.sectionHeader}>{section.title}</Text>
+              )}
+              renderItem={({ item }) => (
+                <ListItemCard
+                  item={item}
+                  onToggle={() => handleToggleItem(item.id)}
+                  onDelete={() => handleDeleteItem(item.id)}
                 />
-              </View>
-              <TouchableOpacity style={styles.clearButton} onPress={handleClearList}>
-                <Text style={styles.clearButtonText}>🗑 Lijst leegmaken</Text>
-              </TouchableOpacity>
-            </>
+              )}
+              stickySectionHeadersEnabled={false}
+            />
           )}
-        </ScrollView>
+        </View>
       </View>
-      <BottomNav />
+      <View style={styles.statusBar}>
+        <Text style={styles.statusText}>
+          {openItems.length} open • {checkedItems.length} klaar
+        </Text>
+      </View>
     </SafeAreaView>
   );
 }
@@ -253,304 +245,217 @@ export default function GroceriesScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFF9F0',
+    backgroundColor: '#F3F0EA',
   },
-  backgroundCard: {
+  container: {
     flex: 1,
-    backgroundColor: '#FFF5EA',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
-  contentContainer: {
-    paddingBottom: 120,
-    gap: 20,
+  hero: {
+    gap: 6,
+    marginBottom: 16,
   },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    alignItems: 'flex-start',
+  kicker: {
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    fontSize: 12,
+    color: '#7F7B75',
   },
   title: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '700',
-    color: '#2F1F1E',
+    color: '#141A24',
   },
   subtitle: {
-    marginTop: 4,
-    fontSize: 15,
-    color: 'rgba(47,31,30,0.7)',
+    color: 'rgba(20,26,36,0.55)',
+    marginBottom: 10,
   },
-  historyButton: {
-    backgroundColor: '#FFE5CC',
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  historyButtonText: {
-    fontWeight: '600',
-    color: '#3A1F0F',
-  },
-  statusRow: {
+  inputWrapper: {
     flexDirection: 'row',
-    gap: 12,
-  },
-  statusPill: {
-    flex: 1,
+    alignItems: 'center',
+    borderRadius: 18,
     backgroundColor: '#FFF',
-    borderRadius: 999,
-    paddingVertical: 10,
     paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    paddingVertical: 12,
+    shadowColor: '#141A24',
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  statusText: {
-    textAlign: 'center',
-    fontWeight: '600',
-    color: '#3F2E2C',
-  },
-  addCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: '#D8BCA5',
-    shadowOpacity: 0.25,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 4,
-    gap: 16,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF8F0',
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  inputIconBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFEFE2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  inputIcon: {
-    fontSize: 18,
+  inputWrapperActive: {
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#2F1F1E',
+    color: '#141A24',
   },
-  circleButton: {
+  addButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFB267',
+    backgroundColor: '#171E2B',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  circleButtonText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2F1F1E',
-  },
-  quantityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  quantityLabel: {
-    fontWeight: '600',
-    color: '#3F2E2C',
-  },
-  stepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF4E8',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-  },
-  stepperButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  stepperText: {
-    fontSize: 18,
-    color: '#3F2E2C',
-  },
-  stepperValue: {
-    minWidth: 24,
-    textAlign: 'center',
-    fontWeight: '600',
-    color: '#3F2E2C',
-  },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: '#FF914D',
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-    shadowColor: '#FF914D',
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
-  },
-  primaryButtonText: {
+  addButtonIcon: {
     color: '#FFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '600',
   },
-  recentSection: {
+  quickAddRow: {
     gap: 12,
+    paddingVertical: 2,
   },
-  recentTitle: {
-    fontWeight: '700',
-    color: '#3F2E2C',
-  },
-  recentList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  recentPill: {
+  quickAddPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF4E8',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 999,
-    gap: 6,
+    backgroundColor: '#FFF',
+    shadowColor: '#141A24',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
-  recentEmoji: {
-    fontSize: 16,
+  quickAddEmoji: {
+    fontSize: 18,
+    marginRight: 8,
   },
-  recentLabel: {
+  quickAddLabel: {
     fontWeight: '600',
-    color: '#3F2E2C',
+    color: '#141A24',
   },
-  listSection: {
-    gap: 12,
+  revealFavoritesButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+  },
+  revealFavoritesText: {
+    color: '#5C4BFF',
+    fontWeight: '600',
+  },
+  listWrapper: {
+    flex: 1,
+    marginTop: 12,
+  },
+  sectionContent: {
+    paddingBottom: 120,
+  },
+  sectionHeader: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#7B7F87',
+    marginBottom: 8,
+    marginTop: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  itemSeparator: {
+    height: 12,
   },
   listCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#000',
+    gap: 14,
+    shadowColor: '#141A24',
     shadowOpacity: 0.05,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
   listCardDone: {
-    opacity: 0.6,
+    backgroundColor: '#F0F0F2',
   },
-  checkbox: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: '#FF914D',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+  cardDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#141A24',
   },
-  checkboxIcon: {
-    fontSize: 14,
-    color: '#FF914D',
+  cardDotDone: {
+    backgroundColor: '#6AC48A',
   },
-  listCardContent: {
+  cardTextGroup: {
     flex: 1,
   },
-  listCardTitle: {
+  cardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#2F1F1E',
+    color: '#141A24',
   },
-  listCardTitleDone: {
+  cardTitleDone: {
+    color: 'rgba(20,26,36,0.4)',
     textDecorationLine: 'line-through',
-    color: 'rgba(47,31,30,0.6)',
   },
-  listCardSubtitle: {
-    marginTop: 2,
-    color: 'rgba(47,31,30,0.6)',
+  cardSubtitle: {
+    marginTop: 4,
+    color: 'rgba(20,26,36,0.55)',
   },
-  deleteButton: {
-    padding: 8,
-  },
-  deleteIcon: {
+  cardCheck: {
     fontSize: 18,
+    color: '#6AC48A',
+    fontWeight: '700',
   },
-  listSeparator: {
-    height: 12,
-  },
-  clearButton: {
-    marginTop: 16,
+  deleteAction: {
+    width: 120,
+    backgroundColor: '#FFE3E3',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 16,
-    backgroundColor: '#FFECE0',
+    borderRadius: 18,
+    marginVertical: 6,
+    marginLeft: 12,
   },
-  clearButtonText: {
-    fontWeight: '600',
-    color: '#3F2E2C',
+  deleteActionText: {
+    color: '#D64545',
+    fontWeight: '700',
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 48,
-    gap: 12,
+    paddingTop: 80,
+    gap: 16,
   },
-  emptyIconBubble: {
+  emptyBadge: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#FFE5D1',
+    backgroundColor: '#FFF',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#141A24',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
-  emptyIcon: {
-    fontSize: 34,
+  emptyBadgeIcon: {
+    fontSize: 30,
   },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#2F1F1E',
+    color: '#141A24',
   },
   emptySubtitle: {
-    color: 'rgba(47,31,30,0.7)',
+    color: 'rgba(20,26,36,0.55)',
   },
-  navBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  statusBar: {
     paddingVertical: 14,
-    backgroundColor: '#FFF',
+    alignItems: 'center',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E2D5CA',
+    borderColor: 'rgba(20,26,36,0.08)',
+    backgroundColor: '#F5F2ED',
   },
-  navItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  navItemActive: {
-    backgroundColor: 'rgba(58,175,96,0.15)',
-  },
-  navLabel: {
+  statusText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#7B6A64',
-  },
-  navLabelActive: {
-    color: '#2F8F4E',
+    color: '#141A24',
   },
 });
+
